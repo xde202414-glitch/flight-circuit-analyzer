@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     default_map_longitude: float = 120.1551
     default_map_zoom: int = 13
     tianditu_key: str = ""
+    amap_key: str = ""
     
     # Calculation Settings
     default_circuit_height: int = 300  # meters, 起落航线高度

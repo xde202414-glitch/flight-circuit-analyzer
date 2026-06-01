@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RunwayParams, Coordinate } from '../../types/runway';
 import { GeometryOverlay, TrackResult, TrackSegment, TRACK_COLORS } from '../../types/track';
+import { fetchElevationGrid, buildTerrainMesh, sampleTerrainHeight, type ElevationGridData } from '../../utils/elevationGrid';
 
 const AIRSPACE_RADIUS_M = 5000;
 const EARTH_RADIUS_M = 6378137;
@@ -945,7 +946,8 @@ const ThreeScene: React.FC<{
   trackResult: TrackResult | null;
   buildings: BuildingFeature[];
   roads: RoadFeature[];
-}> = ({ runwayParams, trackResult, buildings, roads }) => {
+  elevationData: ElevationGridData | null;
+}> = ({ runwayParams, trackResult, buildings, roads, elevationData }) => {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
@@ -1026,6 +1028,15 @@ const ThreeScene: React.FC<{
     light.position.set(2600, 5200, 1800);
     scene.add(light);
     scene.add(new THREE.GridHelper(AIRSPACE_RADIUS_M * 2, 20, '#94a3b8', '#cbd5e1'));
+
+    // --- Terrain mesh ---
+    const terrainMesh = elevationData
+      ? buildTerrainMesh(elevationData, runwayParams.coordinate, runwayParams.elevation)
+      : null;
+    if (terrainMesh) {
+      scene.add(terrainMesh);
+    }
+
     scene.add(createAirspaceGroup());
     scene.add(createRunwayGroup(runwayParams, rwWidth));
 
@@ -1036,12 +1047,27 @@ const ThreeScene: React.FC<{
     buildings.forEach((building) => {
       const mesh = createBuildingMesh(runwayParams.coordinate, building);
       if (mesh) {
+        // Offset building base to terrain height
+        const centroid = building.geometry[0];
+        if (centroid && elevationData) {
+          const proj = projectCoordinate(runwayParams.coordinate, centroid);
+          const terrainH = sampleTerrainHeight(elevationData, proj.east, proj.north, runwayParams.elevation);
+          mesh.position.y = terrainH;
+        }
         scene.add(mesh);
       }
     });
 
     roads.forEach((road) => {
-      const points = road.geometry.map((point) => toVector3(runwayParams.coordinate, point, 0.35));
+      const points = road.geometry.map((point) => {
+        const terrainH = elevationData
+          ? sampleTerrainHeight(elevationData,
+              projectCoordinate(runwayParams.coordinate, point).east,
+              projectCoordinate(runwayParams.coordinate, point).north,
+              runwayParams.elevation)
+          : 0;
+        return toVector3(runwayParams.coordinate, point, Math.max(0.35, terrainH + 0.35));
+      });
       if (points.length >= 2) {
         scene.add(createLine(points, '#64748b', 0.85));
       }
@@ -1075,7 +1101,7 @@ const ThreeScene: React.FC<{
       renderer.domElement.remove();
       disposeObject(scene);
     };
-  }, [buildings, roads, runwayParams, trackResult]);
+  }, [buildings, roads, runwayParams, trackResult, elevationData]);
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
 };
@@ -1087,6 +1113,12 @@ const Map3DView: React.FC<Map3DViewProps> = ({ runwayParams, trackResult, enable
   const [error, setError] = React.useState<string | null>(null);
   const [loadedKey, setLoadedKey] = React.useState<string | null>(null);
   const [reloadToken, setReloadToken] = React.useState(0);
+
+  // Elevation data
+  const [elevationData, setElevationData] = React.useState<ElevationGridData | null>(null);
+  const [elevationLoading, setElevationLoading] = React.useState(false);
+  const [elevationError, setElevationError] = React.useState<string | null>(null);
+
   const currentKey = coordinateKey(runwayParams.coordinate);
 
   React.useEffect(() => {
@@ -1099,24 +1131,38 @@ const Map3DView: React.FC<Map3DViewProps> = ({ runwayParams, trackResult, enable
 
     setLoading(true);
     setError(null);
+    setElevationLoading(true);
+    setElevationError(null);
 
-    fetchOsmScene(runwayParams.coordinate, controller.signal)
-      .then((scene) => {
-        setBuildings(scene.buildings);
-        setRoads(scene.roads);
-        setLoadedKey(currentKey);
-      })
-      .catch((fetchError: unknown) => {
+    // Fetch OSM and elevation in parallel
+    Promise.allSettled([
+      fetchOsmScene(runwayParams.coordinate, controller.signal)
+        .then((scene) => {
+          setBuildings(scene.buildings);
+          setRoads(scene.roads);
+        }),
+      fetchElevationGrid(runwayParams.coordinate)
+        .then((data) => {
+          setElevationData(data);
+        }),
+    ]).then(([osmResult, elResult]) => {
+      if (osmResult.status === 'rejected') {
+        const fetchError = osmResult.reason;
         if (controller.signal.aborted) {
           setError('OSM数据请求超时，请稍后重试');
-          return;
+        } else {
+          setError(fetchError instanceof Error ? fetchError.message : 'OSM数据请求失败');
         }
-        setError(fetchError instanceof Error ? fetchError.message : 'OSM数据请求失败');
-      })
-      .finally(() => {
-        window.clearTimeout(timeoutId);
-        setLoading(false);
-      });
+      }
+      if (elResult.status === 'rejected') {
+        setElevationError(elResult.reason instanceof Error ? elResult.reason.message : '高程数据获取失败');
+      }
+      setLoadedKey(currentKey);
+    }).finally(() => {
+      window.clearTimeout(timeoutId);
+      setLoading(false);
+      setElevationLoading(false);
+    });
 
     return () => {
       window.clearTimeout(timeoutId);
@@ -1137,16 +1183,17 @@ const Map3DView: React.FC<Map3DViewProps> = ({ runwayParams, trackResult, enable
           trackResult={trackResult}
           buildings={buildings}
           roads={roads}
+          elevationData={elevationData}
         />
       )}
 
       <Box sx={{ position: 'absolute', left: 12, top: 12, zIndex: 2, maxWidth: 360 }}>
-        {loading && (
+        {(loading || elevationLoading) && (
           <Alert severity="info" icon={<CircularProgress size={18} />}>
-            正在获取本场空域5km范围内的OSM建筑和道路数据
+            {elevationLoading ? '正在获取地形高程数据...' : '正在获取本场空域5km范围内的OSM建筑和道路数据'}
           </Alert>
         )}
-        {!loading && error && (
+        {!loading && !elevationLoading && error && (
           <Alert
             severity="warning"
             action={
@@ -1157,6 +1204,9 @@ const Map3DView: React.FC<Map3DViewProps> = ({ runwayParams, trackResult, enable
           >
             {error}
           </Alert>
+        )}
+        {!loading && !elevationLoading && elevationError && (
+          <Alert severity="warning">{elevationError}</Alert>
         )}
         {!loading && !error && buildings.length === 0 && roads.length === 0 && loadedKey === currentKey && (
           <Alert severity="info">5km范围内未获取到可用的OSM建筑或道路数据</Alert>
@@ -1182,7 +1232,9 @@ const Map3DView: React.FC<Map3DViewProps> = ({ runwayParams, trackResult, enable
         }}
       >
         <Typography variant="caption">
-          OSM建筑 {buildings.length} / 道路 {roads.length} / 半径 5km
+          OSM建筑 {buildings.length} / 道路 {roads.length}
+          {elevationData && ` / 地形点 ${elevationData.validCount}/${elevationData.totalCount}`}
+          {' / 半径 5km'}
         </Typography>
       </Box>
     </Box>
