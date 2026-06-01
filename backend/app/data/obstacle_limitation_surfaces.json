@@ -1,0 +1,278 @@
+{
+  "sourceCode": "MH 5001-2021",
+  "sourceVersionNote": "依据民用机场飞行区技术标准 MH 5001-2021 第五章 障碍物的限制和移除，表5.2.4和表5.2.7",
+  "codeNumberFromRunwayLength": {
+    "description": "飞行区指标I根据跑道长度自动确定",
+    "boundaries": [
+      {"maxLengthM": 800, "codeNumber": "1"},
+      {"maxLengthM": 1200, "codeNumber": "2"},
+      {"maxLengthM": 1800, "codeNumber": "3"},
+      {"maxLengthM": 99999, "codeNumber": "4"}
+    ]
+  },
+  "styles": {
+    "approach": "ols-approach",
+    "approachSecond": "ols-approach-second",
+    "approachHorizontal": "ols-approach-horizontal",
+    "takeoffClimb": "ols-takeoff-climb",
+    "transitional": "ols-transitional",
+    "innerTransitional": "ols-inner-transitional",
+    "innerHorizontal": "ols-inner-horizontal",
+    "conical": "ols-conical",
+    "innerApproach": "ols-inner-approach",
+    "balkedLanding": "ols-balked-landing",
+    "envelope": "ols-envelope",
+    "runwayStrip": "runway-surface"
+  },
+  "runwayWidth": {
+    "description": "跑道宽度根据飞行区指标I自动确定 (MH 5001-2021 表4.2.2)",
+    "codeNumberDefaults": {
+      "1": 18,
+      "2": 23,
+      "3": 30,
+      "4": 45
+    },
+    "unit": "m",
+    "sourceCode": "MH 5001-2021"
+  },
+  "runwayStrip": {
+    "halfWidthM": {
+      "defaultValue": 75,
+      "codeNumberDefaults": { "1": 30, "2": 40, "3": 75, "4": 75 },
+      "unit": "m",
+      "sourceCode": "MH 5001-2021",
+      "description": "升降带半宽（非仪表跑道：指标1=30m，指标2=40m，指标3-4=75m）"
+    },
+    "endSafetyM": {
+      "defaultValue": 60,
+      "codeNumberDefaults": { "1": 30, "2": 60, "3": 60, "4": 60 },
+      "unit": "m",
+      "sourceCode": "MH 5001-2021",
+      "description": "跑道两端外升降带延伸长度（非仪表跑道：指标1=30m，指标2-4=60m）"
+    }
+  },
+  "surfaceSets": {
+    "non_instrument": {
+      "label": "非仪表跑道",
+      "sourceCode": "MH 5001-2021",
+      "clause": "5.2.1-5.2.7 表5.2.4",
+      "description": "非仪表跑道障碍物限制面：锥形面、内水平面、进近面、过渡面；供起飞跑道另设起飞爬升面",
+      "codeNumbers": {
+        "1": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 60, "distanceFromThresholdM": 30, "divergenceEachSide": 0.10, "lengthM": 1600, "slopePercent": 5.0}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 60, "distanceFromRunwayEndM": 30, "divergenceEachSide": 0.10, "finalWidthM": 380, "lengthM": 1600, "slopePercent": 5.0 },
+          "transitional": { "slopePercent": 20 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 2000 },
+          "conical": { "slopePercent": 5, "heightM": 35 }
+        },
+        "2": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 80, "distanceFromThresholdM": 60, "divergenceEachSide": 0.10, "lengthM": 2500, "slopePercent": 4.0}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 80, "distanceFromRunwayEndM": 60, "divergenceEachSide": 0.10, "finalWidthM": 580, "lengthM": 2500, "slopePercent": 4.0 },
+          "transitional": { "slopePercent": 20 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 2500 },
+          "conical": { "slopePercent": 5, "heightM": 55 }
+        },
+        "3": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 150, "distanceFromThresholdM": 60, "divergenceEachSide": 0.10, "lengthM": 3000, "slopePercent": 3.33}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 180, "distanceFromRunwayEndM": 60, "divergenceEachSide": 0.125, "finalWidthM": 1200, "alternateFinalWidthM": 1800, "lengthM": 15000, "slopePercent": 2.0 },
+          "transitional": { "slopePercent": 14.3 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 4000 },
+          "conical": { "slopePercent": 5, "heightM": 75 }
+        },
+        "4": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 150, "distanceFromThresholdM": 60, "divergenceEachSide": 0.10, "lengthM": 3000, "slopePercent": 2.5}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 180, "distanceFromRunwayEndM": 60, "divergenceEachSide": 0.125, "finalWidthM": 1200, "alternateFinalWidthM": 1800, "lengthM": 15000, "slopePercent": 2.0 },
+          "transitional": { "slopePercent": 14.3 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 4000 },
+          "conical": { "slopePercent": 5, "heightM": 100 }
+        }
+      }
+    },
+    "non_precision": {
+      "label": "非精密进近跑道",
+      "sourceCode": "MH 5001-2021",
+      "clause": "5.2.3 表5.2.4",
+      "description": "非精密进近跑道障碍物限制面：锥形面、内水平面、进近面（含第二段和水平段）、过渡面",
+      "codeNumbers": {
+        "1": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 140, "distanceFromThresholdM": 60, "divergenceEachSide": 0.15, "lengthM": 2500, "slopePercent": 3.33},
+              {"divergenceEachSide": 0.15, "lengthM": 3600, "slopePercent": 2.5},
+              {"divergenceEachSide": 0.15, "lengthM": 8400, "slopePercent": 0}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 60, "distanceFromRunwayEndM": 30, "divergenceEachSide": 0.10, "finalWidthM": 380, "lengthM": 1600, "slopePercent": 5.0 },
+          "transitional": { "slopePercent": 20 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 3500 },
+          "conical": { "slopePercent": 5, "heightM": 60 }
+        },
+        "2": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 140, "distanceFromThresholdM": 60, "divergenceEachSide": 0.15, "lengthM": 2500, "slopePercent": 3.33},
+              {"divergenceEachSide": 0.15, "lengthM": 3600, "slopePercent": 2.5},
+              {"divergenceEachSide": 0.15, "lengthM": 8400, "slopePercent": 0}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 80, "distanceFromRunwayEndM": 60, "divergenceEachSide": 0.10, "finalWidthM": 580, "lengthM": 2500, "slopePercent": 4.0 },
+          "transitional": { "slopePercent": 20 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 3500 },
+          "conical": { "slopePercent": 5, "heightM": 60 }
+        },
+        "3": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 280, "distanceFromThresholdM": 60, "divergenceEachSide": 0.15, "lengthM": 3000, "slopePercent": 2.0},
+              {"divergenceEachSide": 0.15, "lengthM": 3600, "slopePercent": 2.5},
+              {"divergenceEachSide": 0.15, "lengthM": 8400, "slopePercent": 0}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 180, "distanceFromRunwayEndM": 60, "divergenceEachSide": 0.125, "finalWidthM": 1200, "alternateFinalWidthM": 1800, "lengthM": 15000, "slopePercent": 2.0 },
+          "transitional": { "slopePercent": 14.3 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 4000 },
+          "conical": { "slopePercent": 5, "heightM": 75 }
+        },
+        "4": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 280, "distanceFromThresholdM": 60, "divergenceEachSide": 0.15, "lengthM": 3000, "slopePercent": 2.0},
+              {"divergenceEachSide": 0.15, "lengthM": 3600, "slopePercent": 2.5},
+              {"divergenceEachSide": 0.15, "lengthM": 8400, "slopePercent": 0}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 180, "distanceFromRunwayEndM": 60, "divergenceEachSide": 0.125, "finalWidthM": 1200, "alternateFinalWidthM": 1800, "lengthM": 15000, "slopePercent": 2.0 },
+          "transitional": { "slopePercent": 14.3 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 4000 },
+          "conical": { "slopePercent": 5, "heightM": 100 }
+        }
+      }
+    },
+    "precision_cat_i": {
+      "label": "I 类精密进近跑道",
+      "sourceCode": "MH 5001-2021",
+      "clause": "5.2.4 表5.2.4",
+      "description": "I 类精密进近跑道障碍物限制面：锥形面、内水平面、进近面（含多段）、过渡面、内进近面、内过渡面、复飞面",
+      "codeNumbers": {
+        "1": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 140, "distanceFromThresholdM": 60, "divergenceEachSide": 0.15, "lengthM": 3000, "slopePercent": 2.5},
+              {"divergenceEachSide": 0.15, "lengthM": 12000, "slopePercent": 3.0}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 60, "distanceFromRunwayEndM": 30, "divergenceEachSide": 0.10, "finalWidthM": 380, "lengthM": 1600, "slopePercent": 5.0 },
+          "transitional": { "slopePercent": 14.3 },
+          "innerTransitional": { "slopePercent": 40 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 3500 },
+          "conical": { "slopePercent": 5, "heightM": 60 },
+          "innerApproach": { "innerEdgeWidthM": 90, "distanceFromThresholdM": 60, "lengthM": 900, "slopePercent": 2.5 },
+          "balkedLanding": { "innerEdgeWidthM": 90, "distanceFromThresholdM": 1800, "divergenceEachSide": 0.10, "slopePercent": 3.33 }
+        },
+        "2": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 140, "distanceFromThresholdM": 60, "divergenceEachSide": 0.15, "lengthM": 3000, "slopePercent": 2.5},
+              {"divergenceEachSide": 0.15, "lengthM": 12000, "slopePercent": 3.0}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 80, "distanceFromRunwayEndM": 60, "divergenceEachSide": 0.10, "finalWidthM": 580, "lengthM": 2500, "slopePercent": 4.0 },
+          "transitional": { "slopePercent": 14.3 },
+          "innerTransitional": { "slopePercent": 40 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 3500 },
+          "conical": { "slopePercent": 5, "heightM": 60 },
+          "innerApproach": { "innerEdgeWidthM": 90, "distanceFromThresholdM": 60, "lengthM": 900, "slopePercent": 2.5 },
+          "balkedLanding": { "innerEdgeWidthM": 90, "distanceFromThresholdM": 1800, "divergenceEachSide": 0.10, "slopePercent": 3.33 }
+        },
+        "3": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 280, "distanceFromThresholdM": 60, "divergenceEachSide": 0.15, "lengthM": 3000, "slopePercent": 2.0},
+              {"divergenceEachSide": 0.15, "lengthM": 3600, "slopePercent": 2.5},
+              {"divergenceEachSide": 0.15, "lengthM": 8400, "slopePercent": 0}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 180, "distanceFromRunwayEndM": 60, "divergenceEachSide": 0.125, "finalWidthM": 1200, "alternateFinalWidthM": 1800, "lengthM": 15000, "slopePercent": 2.0 },
+          "transitional": { "slopePercent": 14.3 },
+          "innerTransitional": { "slopePercent": 33.3 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 4000 },
+          "conical": { "slopePercent": 5, "heightM": 100 },
+          "innerApproach": { "innerEdgeWidthM": 120, "distanceFromThresholdM": 60, "lengthM": 900, "slopePercent": 2.0 },
+          "balkedLanding": { "innerEdgeWidthM": 120, "distanceFromThresholdM": 1800, "divergenceEachSide": 0.10, "slopePercent": 3.33 }
+        },
+        "4": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 280, "distanceFromThresholdM": 60, "divergenceEachSide": 0.15, "lengthM": 3000, "slopePercent": 2.0},
+              {"divergenceEachSide": 0.15, "lengthM": 3600, "slopePercent": 2.5},
+              {"divergenceEachSide": 0.15, "lengthM": 8400, "slopePercent": 0}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 180, "distanceFromRunwayEndM": 60, "divergenceEachSide": 0.125, "finalWidthM": 1200, "alternateFinalWidthM": 1800, "lengthM": 15000, "slopePercent": 2.0 },
+          "transitional": { "slopePercent": 14.3 },
+          "innerTransitional": { "slopePercent": 33.3 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 4000 },
+          "conical": { "slopePercent": 5, "heightM": 100 },
+          "innerApproach": { "innerEdgeWidthM": 120, "distanceFromThresholdM": 60, "lengthM": 900, "slopePercent": 2.0 },
+          "balkedLanding": { "innerEdgeWidthM": 120, "distanceFromThresholdM": 1800, "divergenceEachSide": 0.10, "slopePercent": 3.33 }
+        }
+      }
+    },
+    "precision_cat_ii_iii": {
+      "label": "II/III 类精密进近跑道",
+      "sourceCode": "MH 5001-2021",
+      "clause": "5.2.5 表5.2.4",
+      "description": "II/III 类精密进近跑道障碍物限制面：锥形面、内水平面、进近面（含多段）、过渡面、内进近面、内过渡面、复飞面",
+      "codeNumbers": {
+        "3": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 280, "distanceFromThresholdM": 60, "divergenceEachSide": 0.15, "lengthM": 3000, "slopePercent": 2.0},
+              {"divergenceEachSide": 0.15, "lengthM": 3600, "slopePercent": 2.5},
+              {"divergenceEachSide": 0.15, "lengthM": 8400, "slopePercent": 0}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 180, "distanceFromRunwayEndM": 60, "divergenceEachSide": 0.125, "finalWidthM": 1200, "alternateFinalWidthM": 1800, "lengthM": 15000, "slopePercent": 2.0 },
+          "transitional": { "slopePercent": 14.3 },
+          "innerTransitional": { "slopePercent": 33.3 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 4000 },
+          "conical": { "slopePercent": 5, "heightM": 100 },
+          "innerApproach": { "innerEdgeWidthM": 120, "distanceFromThresholdM": 60, "lengthM": 900, "slopePercent": 2.0 },
+          "balkedLanding": { "innerEdgeWidthM": 120, "distanceFromThresholdM": 1800, "divergenceEachSide": 0.10, "slopePercent": 3.33 }
+        },
+        "4": {
+          "approach": {
+            "segments": [
+              {"innerEdgeWidthM": 280, "distanceFromThresholdM": 60, "divergenceEachSide": 0.15, "lengthM": 3000, "slopePercent": 2.0},
+              {"divergenceEachSide": 0.15, "lengthM": 3600, "slopePercent": 2.5},
+              {"divergenceEachSide": 0.15, "lengthM": 8400, "slopePercent": 0}
+            ]
+          },
+          "takeoffClimb": { "innerEdgeWidthM": 180, "distanceFromRunwayEndM": 60, "divergenceEachSide": 0.125, "finalWidthM": 1200, "alternateFinalWidthM": 1800, "lengthM": 15000, "slopePercent": 2.0 },
+          "transitional": { "slopePercent": 14.3 },
+          "innerTransitional": { "slopePercent": 33.3 },
+          "innerHorizontal": { "heightM": 45, "radiusM": 4000 },
+          "conical": { "slopePercent": 5, "heightM": 100 },
+          "innerApproach": { "innerEdgeWidthM": 120, "distanceFromThresholdM": 60, "lengthM": 900, "slopePercent": 2.0 },
+          "balkedLanding": { "innerEdgeWidthM": 120, "distanceFromThresholdM": 1800, "divergenceEachSide": 0.10, "slopePercent": 3.33 }
+        }
+      }
+    }
+  }
+}

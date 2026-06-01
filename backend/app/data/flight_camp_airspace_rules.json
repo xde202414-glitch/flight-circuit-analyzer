@@ -1,0 +1,85 @@
+{
+  "sourceCode": "航空飞行营地设施及空域标准细则",
+  "sourceDate": "2020-05",
+  "defaultStyleKey": "flight-camp-airspace",
+  "categories": {
+    "glider": {
+      "label": "滑翔机",
+      "radiusM": { "defaultValue": 5000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "一、滑翔机项目营地标准", "description": "以营地基准点为中心，半径 5 公里，真高 200 米。" },
+      "trueHeightM": { "defaultValue": 200, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "一、滑翔机项目营地标准", "description": "飞行空域真高。" },
+      "clearanceRadiusM": { "defaultValue": 0, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "净空条件", "description": "周边无高大障碍物或高压线；未给出固定净空半径。" }
+    },
+    "aerobatic": {
+      "label": "特技飞行",
+      "radiusM": { "defaultValue": 5000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "二、特技飞行项目营地标准", "description": "以营地基准点为中心半径 5 公里以内。" },
+      "trueHeightM": { "defaultValue": 1000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "二、特技飞行项目营地标准", "description": "真高 1000 米（含）以下。" },
+      "clearanceRadiusM": { "defaultValue": 0, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "净空条件", "description": "周边无高大障碍物或高压线；未给出固定净空半径。" }
+    },
+    "powered_hang_glider": {
+      "label": "动力悬挂滑翔机",
+      "radiusM": { "defaultValue": 2000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "三、动力悬挂滑翔机营地标准", "description": "以营地基准点为中心半径 2 公里。" },
+      "trueHeightM": { "defaultValue": 100, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "三、动力悬挂滑翔机营地标准", "description": "飞行空域真高 100 米。" },
+      "clearanceRadiusM": { "defaultValue": 0, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "净空条件", "description": "周边无高大障碍物或高压线；未给出固定净空半径。" }
+    },
+    "light_aircraft": {
+      "label": "轻型飞机",
+      "radiusM": { "defaultValue": 2000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "四、轻型飞机营地标准", "description": "以营地基准点为中心半径 2 公里。" },
+      "trueHeightM": { "defaultValue": 100, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "四、轻型飞机营地标准", "description": "飞行空域真高 100 米。" },
+      "clearanceRadiusM": { "defaultValue": 0, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "净空条件", "description": "周边无高大障碍物或高压线；未给出固定净空半径。" }
+    },
+    "helicopter": {
+      "label": "直升机",
+      "radiusM": { "defaultValue": 5000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "五、直升机项目营地标准", "description": "以营地基准点为中心半径 5 公里。" },
+      "trueHeightM": { "defaultValue": 300, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "五、直升机项目营地标准", "description": "飞行空域真高 300 米。" },
+      "clearanceRadiusM": { "defaultValue": 500, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "五、直升机项目营地标准", "description": "周边 500 米范围内无高大障碍物或高压线。" }
+    },
+    "gyroplane": {
+      "label": "自转旋翼机",
+      "radiusM": { "defaultValue": 2000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "六、自转旋翼机项目营地标准", "description": "以营地基准点为中心半径 2 公里。" },
+      "trueHeightM": { "defaultValue": 200, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "六、自转旋翼机项目营地标准", "description": "飞行空域真高 200 米。" },
+      "clearanceRadiusM": { "defaultValue": 0, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "净空条件", "description": "周边无高大障碍物或高压线；未给出固定净空半径。" }
+    },
+    "balloon_airship": {
+      "label": "热气球与飞艇",
+      "radiusM": { "defaultValue": 2000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "七、热气球与飞艇项目营地标准", "description": "以营地基准点为中心半径 2 公里。" },
+      "trueHeightM": { "defaultValue": 100, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "七、热气球与飞艇项目营地标准", "description": "飞行空域真高 100 米。" },
+      "clearanceRadiusM": { "defaultValue": 300, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "七、热气球与飞艇项目营地标准", "description": "周边 300 米范围内无高大障碍物或高压线。" }
+    },
+    "hang_glider": {
+      "label": "悬挂滑翔翼",
+      "radiusM": { "defaultValue": 2000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "八、悬挂滑翔翼项目营地标准", "description": "以营地基准点为中心半径 2 公里。" },
+      "trueHeightM": { "defaultValue": 100, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "八、悬挂滑翔翼项目营地标准", "description": "飞行空域真高 100 米。" },
+      "clearanceRadiusM": { "defaultValue": 300, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "八、悬挂滑翔翼项目营地标准", "description": "周边 300 米范围内无高大障碍物或高压输电线。" }
+    },
+    "paraglider": {
+      "label": "滑翔伞",
+      "radiusM": { "defaultValue": 2000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "九、滑翔伞项目营地标准", "description": "以营地基准点为中心半径 2 公里。" },
+      "trueHeightM": { "defaultValue": 100, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "九、滑翔伞项目营地标准", "description": "飞行空域真高 100 米。" },
+      "clearanceRadiusM": { "defaultValue": 300, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "九、滑翔伞项目营地标准", "description": "周边 300 米范围内无高大障碍物或高压输电线。" }
+    },
+    "powered_paraglider": {
+      "label": "动力伞",
+      "radiusM": { "defaultValue": 2000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "十、动力伞项目营地标准", "description": "以营地基准点为中心半径 2 公里。" },
+      "trueHeightM": { "defaultValue": 100, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "十、动力伞项目营地标准", "description": "飞行空域真高 100 米。" },
+      "clearanceRadiusM": { "defaultValue": 300, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "十、动力伞项目营地标准", "description": "周边 300 米范围内无高大障碍物或高压输电线。" }
+    },
+    "aero_model": {
+      "label": "航空模型",
+      "radiusM": { "defaultValue": 500, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "十一、航空模型项目营地标准", "description": "遥控项目原则上要求飞行区域不小于半径 500 米。" },
+      "trueHeightM": { "defaultValue": 200, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "十一、航空模型项目营地标准", "description": "真高 200 米（含）以下。" },
+      "clearanceRadiusM": { "defaultValue": 200, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "十一、航空模型项目营地标准", "description": "周边 200 米范围内无高大障碍物或高压输电线。" }
+    },
+    "water_sport_aircraft": {
+      "label": "运动类航空器水上飞行",
+      "radiusM": { "defaultValue": 5000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "十二、运动类航空器水上飞行营地标准", "description": "以营地基准点为中心半径 5 公里。" },
+      "trueHeightM": { "defaultValue": 500, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "十二、运动类航空器水上飞行营地标准", "description": "飞行空域真高 500 米。" },
+      "clearanceRadiusM": { "defaultValue": 200, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "十二、运动类航空器水上飞行营地标准", "description": "周边 200 米范围内无高大障碍物或高压输电线。" }
+    },
+    "skydiving": {
+      "label": "跳伞",
+      "radiusM": { "defaultValue": 5000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "十三、跳伞项目飞行营地标准", "description": "以营地基准点为中心半径 5 公里以内。" },
+      "trueHeightM": { "defaultValue": 3000, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "十三、跳伞项目飞行营地标准", "description": "真高 3000 米（含）以下。" },
+      "clearanceRadiusM": { "defaultValue": 0, "unit": "m", "sourceCode": "航空飞行营地设施及空域标准细则", "clause": "净空条件", "description": "起飞场地空域开阔，周边无高大障碍物或高压线；未给出固定净空半径。" }
+    }
+  }
+}

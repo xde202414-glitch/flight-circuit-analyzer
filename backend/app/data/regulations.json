@@ -1,0 +1,139 @@
+{
+  "source": {
+    "name": "航空器运行目视和仪表飞行程序设计规范",
+    "code": "AC-97-FS-005R1",
+    "authority": "CAAC"
+  },
+  "standard_circuit_heights": {
+    "light": {
+      "min": 150,
+      "max": 500,
+      "recommended": 300,
+      "unit": "meters",
+      "description": "轻型航空器起落航线高度"
+    },
+    "medium": {
+      "min": 200,
+      "max": 800,
+      "recommended": 500,
+      "unit": "meters",
+      "description": "中型航空器起落航线高度"
+    },
+    "heavy": {
+      "min": 300,
+      "max": 1000,
+      "recommended": 600,
+      "unit": "meters",
+      "description": "重型航空器起落航线高度"
+    }
+  },
+  "vfr_pattern_classes": {
+    "A": {
+      "max_ias_kmh": 185,
+      "downwind_offset_m": 1800,
+      "departure_distance_m": 1800,
+      "final_distance_m": 2200,
+      "description": "A类目视起落航线参数"
+    },
+    "B": {
+      "max_ias_kmh": 250,
+      "downwind_offset_m": 2500,
+      "departure_distance_m": 2000,
+      "final_distance_m": 2600,
+      "description": "B类及以下目视起落航线参数"
+    },
+    "C": {
+      "max_ias_kmh": 300,
+      "downwind_offset_m": 3200,
+      "departure_distance_m": 2600,
+      "final_distance_m": 3200,
+      "description": "C类目视起落航线参数"
+    },
+    "D": {
+      "max_ias_kmh": 350,
+      "downwind_offset_m": 4000,
+      "departure_distance_m": 3200,
+      "final_distance_m": 4000,
+      "description": "D类目视起落航线参数"
+    }
+  },
+  "visual_procedure": {
+    "minimum_straight_leg_m": 500,
+    "arc_points": 24,
+    "runway_strip_half_width_m": 75,
+    "runway_end_safety_m": 100,
+    "field_airspace_radius_m": 5000,
+    "surface_inner_half_width_m": 150,
+    "surface_divergence_ratio": 0.15,
+    "approach_surface_length_m": 3000,
+    "takeoff_surface_length_m": 3000,
+    "approach_surface_slope_percent": 6.0,
+    "takeoff_surface_slope_percent": 6.0
+  },
+  "bank_angle_limits": {
+    "visual_flight": {
+      "min": 5,
+      "max": 30,
+      "recommended": 15,
+      "unit": "degrees",
+      "description": "目视飞行转弯坡度"
+    }
+  },
+  "circuit_leg_distances": {
+    "departure": {
+      "recommended_factor": 1.5,
+      "description": "Legacy compatibility only; VFR procedure uses vfr_pattern_classes"
+    },
+    "crosswind_leg": {
+      "recommended": 1000,
+      "description": "Legacy compatibility only"
+    },
+    "downwind_leg": {
+      "recommended": 2000,
+      "description": "Legacy compatibility only"
+    },
+    "base_leg": {
+      "recommended": 1000,
+      "description": "Legacy compatibility only"
+    },
+    "final_approach": {
+      "recommended_factor": 2.0,
+      "description": "Legacy compatibility only"
+    }
+  },
+  "turn_constraints": {
+    "min_turn_radius": {
+      "light": 100,
+      "medium": 400,
+      "heavy": 600
+    },
+    "turn_arc_points": {
+      "recommended": 24
+    }
+  },
+  "validation_rules": {
+    "runway_length": {
+      "min": 200,
+      "warning_min": 600,
+      "max": 5000
+    },
+    "magnetic_bearing": {
+      "min": 0,
+      "max": 360
+    },
+    "elevation": {
+      "min": -500,
+      "max": 5000
+    }
+  },
+  "safety_margins": {
+    "runway_clearance": {
+      "min": 50,
+      "recommended": 100
+    },
+    "obstacle_clearance": {
+      "min": 30,
+      "recommended": 50
+    }
+  }
+}

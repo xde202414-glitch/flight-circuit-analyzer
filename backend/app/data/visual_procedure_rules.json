@@ -1,0 +1,109 @@
+{
+  "sourceCode": "AC-97-FS-005R1 / AP-91-FS-2019-02",
+  "visual_procedure": {
+    "minimum_straight_leg_m": {
+      "defaultValue": 500,
+      "unit": "m",
+      "sourceCode": "AC-97-FS-005R1",
+      "clause": "目视起落航线几何生成控制值",
+      "description": "自动几何参数推算时保留的最小直线航段长度。"
+    },
+    "arc_points": {
+      "defaultValue": 24,
+      "unit": "points",
+      "sourceCode": "AC-97-FS-005R1",
+      "clause": "圆弧离散绘制",
+      "description": "每个 90 度转弯圆弧的离散点数量。"
+    },
+    "field_airspace_radius_m": {
+      "defaultValue": 5000,
+      "unit": "m",
+      "sourceCode": "AP-91-FS-2019-02",
+      "clause": "7.5 防撞（起落航线间隔保持）",
+      "description": "用于本场空域参考范围绘制的半径。"
+    },
+    "standard_left_pattern": {
+      "defaultValue": true,
+      "unit": "",
+      "sourceCode": "AP-91-FS-2019-02",
+      "clause": "5.1 / 8.1",
+      "description": "无管制机场通常使用标准左起落航线；右起落航线应由航空情报资料公布或另有规定。"
+    },
+    "stable_final_distance_m": {
+      "defaultValue": 1500,
+      "unit": "m",
+      "sourceCode": "AP-91-FS-2019-02",
+      "clause": "8.4 五边进近",
+      "description": "用于提示五边稳定进近的默认参考距离，实际航图可人工填写五边长度。"
+    },
+    "first_turn_min_height_m": {
+      "defaultValue": 150,
+      "unit": "m",
+      "sourceCode": "AC-97-FS-005R1",
+      "clause": "目视起落航线关键高度控制",
+      "description": "一转弯前建议达到的最低相对跑道高度。"
+    },
+    "final_turn_min_height_m": {
+      "defaultValue": 150,
+      "unit": "m",
+      "sourceCode": "AC-97-FS-005R1",
+      "clause": "目视起落航线关键高度控制",
+      "description": "四转弯/五边切入前建议保持的最低相对跑道高度。"
+    }
+  },
+  "vfr_pattern_classes": {
+    "A": {
+      "max_ias_kmh": { "defaultValue": 185, "unit": "km/h", "sourceCode": "AC-97-FS-005R1", "clause": "航空器速度分类", "description": "A 类目视程序最大 IAS。" },
+      "standard_circuit_height_m": { "defaultValue": 300, "unit": "m", "sourceCode": "AP-91-FS-2019-02", "clause": "附件 1 推荐起落航线高度", "description": "低速/超轻型航空器默认起落航线相对高度。" },
+      "downwind_offset_m": { "defaultValue": 2000, "unit": "m", "sourceCode": "AC-97-FS-005R1", "clause": "目视起落航线几何参数", "description": "一边与三边间隔自动推算基准值。" },
+      "departure_distance_m": { "defaultValue": 1500, "unit": "m", "sourceCode": "AC-97-FS-005R1", "clause": "目视起落航线几何参数", "description": "一边长度自动推算基准值。" },
+      "final_distance_m": { "defaultValue": 2000, "unit": "m", "sourceCode": "AC-97-FS-005R1", "clause": "目视起落航线几何参数", "description": "五边长度自动推算基准值。" }
+    },
+    "B": {
+      "max_ias_kmh": { "defaultValue": 250, "unit": "km/h", "sourceCode": "AC-97-FS-005R1", "clause": "航空器速度分类", "description": "B 类目视程序最大 IAS。" },
+      "standard_circuit_height_m": { "defaultValue": 300, "unit": "m", "sourceCode": "AP-91-FS-2019-02", "clause": "附件 1 推荐起落航线高度", "description": "轻型固定翼默认起落航线相对高度。" },
+      "downwind_offset_m": { "defaultValue": 2500, "unit": "m", "sourceCode": "AC-97-FS-005R1", "clause": "目视起落航线几何参数", "description": "一边与三边间隔自动推算基准值。" },
+      "departure_distance_m": { "defaultValue": 2000, "unit": "m", "sourceCode": "AC-97-FS-005R1", "clause": "目视起落航线几何参数", "description": "一边长度自动推算基准值。" },
+      "final_distance_m": { "defaultValue": 2600, "unit": "m", "sourceCode": "AC-97-FS-005R1", "clause": "目视起落航线几何参数", "description": "五边长度自动推算基准值。" }
+    },
+    "C": {
+      "max_ias_kmh": { "defaultValue": 300, "unit": "km/h", "sourceCode": "AC-97-FS-005R1", "clause": "航空器速度分类", "description": "C 类目视程序最大 IAS。" },
+      "standard_circuit_height_m": { "defaultValue": 450, "unit": "m", "sourceCode": "AP-91-FS-2019-02", "clause": "附件 1 推荐起落航线高度", "description": "高性能涡桨/喷气航空器默认起落航线相对高度。" },
+      "downwind_offset_m": { "defaultValue": 3500, "unit": "m", "sourceCode": "AC-97-FS-005R1", "clause": "目视起落航线几何参数", "description": "一边与三边间隔自动推算基准值。" },
+      "departure_distance_m": { "defaultValue": 3000, "unit": "m", "sourceCode": "AC-97-FS-005R1", "clause": "目视起落航线几何参数", "description": "一边长度自动推算基准值。" },
+      "final_distance_m": { "defaultValue": 4000, "unit": "m", "sourceCode": "AC-97-FS-005R1", "clause": "目视起落航线几何参数", "description": "五边长度自动推算基准值。" }
+    },
+    "D": {
+      "max_ias_kmh": { "defaultValue": 370, "unit": "km/h", "sourceCode": "AC-97-FS-005R1", "clause": "航空器速度分类", "description": "D 类目视程序最大 IAS。" },
+      "standard_circuit_height_m": { "defaultValue": 450, "unit": "m", "sourceCode": "AP-91-FS-2019-02", "clause": "附件 1 推荐起落航线高度", "description": "高性能航空器默认起落航线相对高度。" },
+      "downwind_offset_m": { "defaultValue": 4500, "unit": "m", "sourceCode": "AC-97-FS-005R1", "clause": "目视起落航线几何参数", "description": "一边与三边间隔自动推算基准值。" },
+      "departure_distance_m": { "defaultValue": 4000, "unit": "m", "sourceCode": "AC-97-FS-005R1", "clause": "目视起落航线几何参数", "description": "一边长度自动推算基准值。" },
+      "final_distance_m": { "defaultValue": 5000, "unit": "m", "sourceCode": "AC-97-FS-005R1", "clause": "目视起落航线几何参数", "description": "五边长度自动推算基准值。" }
+    }
+  },
+  "turn_constraints": {
+    "turn_arc_points": { "recommended": 24 },
+    "min_turn_radius": {
+      "light": 120,
+      "medium": 300,
+      "heavy": 600
+    }
+  },
+  "bank_angle_limits": {
+    "visual_flight": { "min": 5, "max": 30, "recommended": 15 }
+  },
+  "standard_circuit_heights": {
+    "light": { "min": 150, "recommended": 300, "max": 500 },
+    "medium": { "min": 300, "recommended": 450, "max": 700 },
+    "heavy": { "min": 450, "recommended": 600, "max": 1000 }
+  },
+  "validation_rules": {
+    "runway_length": { "min": 200, "warning_min": 600, "max": 5000 },
+    "magnetic_bearing": { "min": 0, "max": 360 },
+    "elevation": { "min": -500, "max": 5000 }
+  },
+  "safety_margins": {
+    "runway_clearance": { "min": 50, "recommended": 100 },
+    "obstacle_clearance": { "min": 30, "recommended": 50 }
+  }
+}
