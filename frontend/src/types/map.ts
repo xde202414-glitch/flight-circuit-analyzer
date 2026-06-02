@@ -12,6 +12,7 @@ export interface MapConfig {
   defaultCenter: Coordinate;
   defaultZoom: number;
   tiandituKey?: string;
+  geovisToken?: string;
 }
 
 export interface PoiSearchBounds {

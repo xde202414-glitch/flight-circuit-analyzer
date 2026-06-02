@@ -18,5 +18,6 @@ async def get_map_config():
             },
             "defaultZoom": settings.default_map_zoom,
             "tiandituKey": settings.tianditu_key,
+            "geovisToken": settings.geovis_token,
         }
     )

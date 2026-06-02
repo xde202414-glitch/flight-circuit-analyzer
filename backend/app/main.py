@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 
 from app.config import settings
-from app.api import runway, aircraft, track, config, elevation
+from app.api import runway, aircraft, track, config, elevation, buildings, helipad
 
 
 @asynccontextmanager
@@ -48,6 +48,8 @@ app.include_router(aircraft.router, prefix=settings.api_prefix, tags=["机型库
 app.include_router(track.router, prefix=settings.api_prefix, tags=["航迹计算"])
 app.include_router(config.router, prefix=settings.api_prefix, tags=["map-config"])
 app.include_router(elevation.router, prefix=settings.api_prefix, tags=["elevation"])
+app.include_router(buildings.router, prefix=settings.api_prefix, tags=["buildings"])
+app.include_router(helipad.router, prefix=settings.api_prefix, tags=["helipad"])
 
 
 @app.get("/health")

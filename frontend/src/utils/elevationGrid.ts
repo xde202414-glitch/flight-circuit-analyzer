@@ -42,7 +42,16 @@ export async function fetchElevationGrid(
   if (!resp.ok) throw new Error(`Elevation API error: ${resp.status}`);
   const json = await resp.json();
   if (json.code !== 200) throw new Error(json.message || 'Elevation API error');
-  return json.data as ElevationGridData;
+  // Map backend snake_case to frontend camelCase
+  const raw = json.data as Record<string, unknown>;
+  return {
+    points: raw.points,
+    gridSize: raw.grid_size,
+    spacingMeters: raw.spacing_meters,
+    center: raw.center,
+    validCount: raw.valid_count,
+    totalCount: raw.total_count,
+  } as ElevationGridData;
 }
 
 /**

@@ -26,3 +26,19 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# API keys (sensitive)
+*.env
+!*.env.example
+
+# Large data files
+*.osm.pbf
+omsdata_from_geofabrik/
+
+# Reference code (not part of the app)
+MAP HELI260522/
+
+# Distribution archives
+*.zip
+*.7z
+*.rar

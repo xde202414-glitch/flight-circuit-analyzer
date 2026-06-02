@@ -3,11 +3,13 @@ import { apiGet } from '../api/client';
 import { BaseMapType, isBaseMapType, MapConfig } from '../types/map';
 
 const TIANDITU_KEY_STORAGE = 'tianditu_api_key';
+const GEOVIS_TOKEN_STORAGE = 'geovis_token';
 const BASE_MAP_STORAGE = 'base_map_type';
 
 interface MapSettingsState {
   baseMapType: BaseMapType;
   tiandituKey: string;
+  geovisToken: string;
   isInitialized: boolean;
   isLoadingConfig: boolean;
   configError: string | null;
@@ -55,9 +57,30 @@ function writeStoredKey(key: string): void {
   }
 }
 
+function writeStoredGeovisToken(token: string): void {
+  try {
+    if (token) {
+      localStorage.setItem(GEOVIS_TOKEN_STORAGE, token);
+    } else {
+      localStorage.removeItem(GEOVIS_TOKEN_STORAGE);
+    }
+  } catch {
+    // Ignore
+  }
+}
+
+function readStoredGeovisToken(): string {
+  try {
+    return localStorage.getItem(GEOVIS_TOKEN_STORAGE) ?? '';
+  } catch {
+    return '';
+  }
+}
+
 export const useMapSettingsStore = create<MapSettingsState>((set, get) => ({
   baseMapType: 'osm',
   tiandituKey: '',
+  geovisToken: '',
   isInitialized: false,
   isLoadingConfig: false,
   configError: null,
@@ -71,6 +94,7 @@ export const useMapSettingsStore = create<MapSettingsState>((set, get) => ({
 
     const storedKey = readStoredKey();
     const storedBaseMap = readStoredBaseMap();
+    const storedGeovis = readStoredGeovisToken();
     let serverConfig: MapConfig | null = null;
     let configError: string | null = null;
 
@@ -81,8 +105,14 @@ export const useMapSettingsStore = create<MapSettingsState>((set, get) => ({
     }
 
     const tiandituKey = storedKey || serverConfig?.tiandituKey || '';
+    const geovisToken = storedGeovis || serverConfig?.geovisToken || '';
+    // Persist geovis token from server config so MapLibre3DView can read it
+    if (geovisToken && !storedGeovis) {
+      writeStoredGeovisToken(geovisToken);
+    }
     set({
       tiandituKey,
+      geovisToken,
       baseMapType: tiandituKey ? storedBaseMap : 'osm',
       isInitialized: true,
       isLoadingConfig: false,

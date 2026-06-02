@@ -1,4 +1,6 @@
-"""Elevation data API — proxy for Amap and Open-Elevation queries."""
+"""Elevation data API — uses 星图地球数据云 Terrain-RGB as primary source,
+with Open-Elevation and Amap as fallbacks.
+"""
 import math
 import asyncio
 import httpx
@@ -8,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.core.coordinate import CoordinateTransformer
+from app.core.elevation_geovis import get_elevation_grid_geovis
 from app.responses import success, error
 
 router = APIRouter()
@@ -49,6 +52,62 @@ def generate_grid(center_lat: float, center_lon: float,
             lon = center_lon + j * dlon_deg
             grid.append((round(lat, 6), round(lon, 6)))
     return grid, 2 * steps + 1
+
+
+@router.post("/elevation/grid")
+async def get_elevation_grid(req: ElevationGridRequest):
+    """Get elevation grid around a center point.
+
+    Primary: 星图地球数据云 Terrain-RGB tiles (domestic, fast)
+    Fallback: Open-Elevation → Amap Regeo
+    """
+    # Phase 1: Try 星图地球数据云 (best for China)
+    if settings.geovis_token:
+        try:
+            result = await get_elevation_grid_geovis(
+                center_lat=req.center.latitude,
+                center_lon=req.center.longitude,
+                radius_m=req.radius_meters,
+                spacing_m=req.spacing_meters,
+            )
+            if result["valid_count"] > 0:
+                return success(data=result)
+        except Exception as exc:
+            print(f"[elevation] 星图地球数据云 failed: {exc}")
+
+    # Phase 2: Fallback to Open-Elevation + Amap
+    raw_grid, grid_size = generate_grid(
+        req.center.latitude, req.center.longitude,
+        req.radius_meters, req.spacing_meters
+    )
+
+    async with httpx.AsyncClient() as client:
+        elevations = await fetch_via_open_elevation(client, raw_grid)
+
+        if settings.amap_key:
+            null_indices = [i for i, e in enumerate(elevations) if e is None]
+            if null_indices:
+                semaphore = asyncio.Semaphore(10)
+                null_points = [raw_grid[i] for i in null_indices]
+                refined = await fetch_via_amap(client, null_points, semaphore)
+                for idx, el in zip(null_indices, refined):
+                    if el is not None:
+                        elevations[idx] = el
+
+    points = [
+        ElevationPoint(latitude=lat, longitude=lon, elevation=el)
+        for (lat, lon), el in zip(raw_grid, elevations)
+    ]
+    valid = sum(1 for p in points if p.elevation is not None)
+
+    return success(data={
+        "points": [p.model_dump() for p in points],
+        "grid_size": grid_size,
+        "spacing_meters": req.spacing_meters,
+        "center": req.center.model_dump(),
+        "valid_count": valid,
+        "total_count": len(points),
+    })
 
 
 async def fetch_via_open_elevation(
@@ -103,45 +162,3 @@ async def fetch_via_amap(
 
     tasks = [fetch_one(lat, lon) for lat, lon in points]
     return await asyncio.gather(*tasks)
-
-
-@router.post("/elevation/grid")
-async def get_elevation_grid(req: ElevationGridRequest):
-    """Get elevation grid around a center point.
-
-    Uses Open-Elevation for fast baseline, then Amap for refinement if key is configured.
-    """
-    raw_grid, grid_size = generate_grid(
-        req.center.latitude, req.center.longitude,
-        req.radius_meters, req.spacing_meters
-    )
-
-    async with httpx.AsyncClient() as client:
-        # Phase 1: Fast batch via Open-Elevation (SRTM ~30m resolution)
-        elevations = await fetch_via_open_elevation(client, raw_grid)
-
-        # Phase 2: Refine with Amap if key is available
-        if settings.amap_key:
-            null_indices = [i for i, e in enumerate(elevations) if e is None]
-            if null_indices:
-                semaphore = asyncio.Semaphore(10)
-                null_points = [raw_grid[i] for i in null_indices]
-                refined = await fetch_via_amap(client, null_points, semaphore)
-                for idx, el in zip(null_indices, refined):
-                    if el is not None:
-                        elevations[idx] = el
-
-    points = [
-        ElevationPoint(latitude=lat, longitude=lon, elevation=el)
-        for (lat, lon), el in zip(raw_grid, elevations)
-    ]
-    valid = sum(1 for p in points if p.elevation is not None)
-
-    return success(data={
-        "points": [p.model_dump() for p in points],
-        "grid_size": grid_size,
-        "spacing_meters": req.spacing_meters,
-        "center": req.center.model_dump(),
-        "valid_count": valid,
-        "total_count": len(points),
-    })

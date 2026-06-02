@@ -25,10 +25,14 @@ import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 're
 import L from 'leaflet';
 import TrackLayer from './TrackLayer';
 import RunwayMarker from './RunwayMarker';
+import HelipadLayer from './HelipadLayer';
 import Map3DView from './Map3DView';
+import MapLibre3DView from './MapLibre3DView';
+import Enhanced3DView from './Enhanced3DView';
 import { useTrackStore } from '../../store/useTrackStore';
 import { useRunwayStore } from '../../store/useRunwayStore';
 import { useMapSettingsStore } from '../../store/useMapSettingsStore';
+import { useHelipadStore } from '../../store/useHelipadStore';
 import {
   BASE_MAP_LABELS,
   BASE_MAP_TYPES,
@@ -693,6 +697,8 @@ const MapToolbar: React.FC<MapToolbarProps> = ({
 const MapView: React.FC<MapViewProps> = ({ center, zoom }) => {
   const { runwayParams } = useRunwayStore();
   const trackResult = useTrackStore((state) => state.trackResult);
+  const { analysisMode } = useHelipadStore();
+  const tiandituKey = useMapSettingsStore((state) => state.tiandituKey);
   const initializeMapSettings = useMapSettingsStore((state) => state.initialize);
   const [showAnnotations, setShowAnnotations] = React.useState(true);
   const [showTrack, setShowTrack] = React.useState(true);
@@ -700,8 +706,10 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom }) => {
   const [showEnvelope, setShowEnvelope] = React.useState(true);
   const [showAirspaces, setShowAirspaces] = React.useState(true);
   const [mapMode, setMapMode] = React.useState<MapMode>('2d');
+  const [useAnalyticView, setUseAnalyticView] = React.useState(false);
   const [selectedPoi, setSelectedPoi] = React.useState<PoiSearchResult | null>(null);
   const mapRef = React.useRef<L.Map | null>(null);
+  const isHelipadMode = analysisMode === 'helipad';
 
   React.useEffect(() => {
     void initializeMapSettings();
@@ -750,7 +758,7 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom }) => {
           <MapVisibilityUpdater visible={mapMode === '2d'} />
           <RunwayClickSelector />
 
-          {runwayParams && (
+          {runwayParams && !isHelipadMode && (
             <RunwayMarker
               position={[runwayParams.coordinate.latitude, runwayParams.coordinate.longitude]}
               bearing={runwayParams.magneticBearing}
@@ -758,7 +766,7 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom }) => {
             />
           )}
 
-          {trackResult && (
+          {trackResult && !isHelipadMode && (
             <TrackLayer
               result={trackResult}
               showAnnotations={showAnnotations}
@@ -768,17 +776,47 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom }) => {
               showAirspaces={showAirspaces}
             />
           )}
+
+          {isHelipadMode && <HelipadLayer />}
+
           <PoiMarkerLayer poi={selectedPoi} />
         </MapContainer>
       </Box>
 
-      <Box sx={{ display: mapMode === '3d' ? 'block' : 'none', height: '100%', width: '100%' }}>
-        {runwayParams && (
-          <Map3DView
-            runwayParams={runwayParams}
-            trackResult={trackResult}
-            enabled={mapMode === '3d'}
-          />
+      <Box sx={{ display: mapMode === '3d' ? 'block' : 'none', height: '100%', width: '100%', position: 'relative' }}>
+        {isHelipadMode ? (
+          <>
+            {/* 3D view type toggle for helipad */}
+            <Box sx={{ position: 'absolute', top: 8, left: 8, zIndex: 1000, display: 'flex', gap: 0.5 }}>
+              <Button
+                variant={useAnalyticView ? 'outlined' : 'contained'}
+                size="small"
+                onClick={() => setUseAnalyticView(false)}
+                sx={{ fontSize: 11 }}
+              >
+                卫星地形
+              </Button>
+              <Button
+                variant={useAnalyticView ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => setUseAnalyticView(true)}
+                sx={{ fontSize: 11 }}
+              >
+                分析空域
+              </Button>
+            </Box>
+            {useAnalyticView ? (
+              <Enhanced3DView enabled={mapMode === '3d'} />
+            ) : (
+              <MapLibre3DView mode="helipad" enabled={mapMode === '3d'} tiandituKey={tiandituKey} />
+            )}
+          </>
+        ) : runwayParams ? (
+          <Map3DView runwayParams={runwayParams} trackResult={trackResult} enabled={mapMode === '3d'} />
+        ) : (
+          <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Alert severity="info">请先配置跑道参数</Alert>
+          </Box>
         )}
       </Box>
 
