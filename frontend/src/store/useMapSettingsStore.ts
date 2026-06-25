@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import { apiGet } from '../api/client';
-import { BaseMapType, isBaseMapType, MapConfig } from '../types/map';
+import { BaseMapType, isBaseMapType, MapConfig, type ScaleUnit, type Terrain3DMode } from '../types/map';
 
 const TIANDITU_KEY_STORAGE = 'tianditu_api_key';
 const GEOVIS_TOKEN_STORAGE = 'geovis_token';
 const BASE_MAP_STORAGE = 'base_map_type';
+const TERRAIN_3D_MODE_STORAGE = 'terrain_3d_mode';
 
 interface MapSettingsState {
   baseMapType: BaseMapType;
@@ -13,10 +14,18 @@ interface MapSettingsState {
   isInitialized: boolean;
   isLoadingConfig: boolean;
   configError: string | null;
+  // Scale bar
+  scaleRatio: number;       // 0 = auto; >0 = scale denominator (e.g. 500 for 1:500)
+  scaleUnit: ScaleUnit;
+  // 3D base map
+  terrain3DMode: Terrain3DMode;
   initialize: () => Promise<void>;
   setBaseMapType: (type: BaseMapType) => void;
   saveTiandituKey: (key: string) => void;
   clearTiandituKey: () => void;
+  setScaleRatio: (ratio: number) => void;
+  setScaleUnit: (unit: ScaleUnit) => void;
+  setTerrain3DMode: (mode: Terrain3DMode) => void;
 }
 
 function readStoredKey(): string {
@@ -77,13 +86,37 @@ function readStoredGeovisToken(): string {
   }
 }
 
+function readStoredTerrain3DMode(): Terrain3DMode {
+  try {
+    const v = localStorage.getItem(TERRAIN_3D_MODE_STORAGE);
+    return v === 'buildings' ? 'buildings' : 'terrain';
+  } catch {
+    return 'terrain';
+  }
+}
+
+function writeStoredTerrain3DMode(mode: Terrain3DMode): void {
+  try {
+    localStorage.setItem(TERRAIN_3D_MODE_STORAGE, mode);
+  } catch {
+    // Ignore
+  }
+}
+
 export const useMapSettingsStore = create<MapSettingsState>((set, get) => ({
-  baseMapType: 'osm',
-  tiandituKey: '',
-  geovisToken: '',
+  baseMapType: (() => {
+    const storedBaseMap = readStoredBaseMap();
+    const storedKey = readStoredKey();
+    return storedKey ? (storedBaseMap !== 'osm' ? storedBaseMap : 'tianditu-vector') : 'osm';
+  })(),
+  tiandituKey: readStoredKey(),
+  geovisToken: readStoredGeovisToken(),
   isInitialized: false,
   isLoadingConfig: false,
   configError: null,
+  scaleRatio: 0,
+  scaleUnit: 'm',
+  terrain3DMode: 'terrain',
 
   initialize: async () => {
     if (get().isInitialized || get().isLoadingConfig) {
@@ -95,6 +128,7 @@ export const useMapSettingsStore = create<MapSettingsState>((set, get) => ({
     const storedKey = readStoredKey();
     const storedBaseMap = readStoredBaseMap();
     const storedGeovis = readStoredGeovisToken();
+    const storedTerrain3D = readStoredTerrain3DMode();
     let serverConfig: MapConfig | null = null;
     let configError: string | null = null;
 
@@ -113,7 +147,8 @@ export const useMapSettingsStore = create<MapSettingsState>((set, get) => ({
     set({
       tiandituKey,
       geovisToken,
-      baseMapType: tiandituKey ? storedBaseMap : 'osm',
+      baseMapType: tiandituKey ? (storedBaseMap !== 'osm' ? storedBaseMap : 'tianditu-vector') : 'osm',
+      terrain3DMode: storedTerrain3D,
       isInitialized: true,
       isLoadingConfig: false,
       configError,
@@ -138,5 +173,13 @@ export const useMapSettingsStore = create<MapSettingsState>((set, get) => ({
   clearTiandituKey: () => {
     writeStoredKey('');
     set({ tiandituKey: '', baseMapType: 'osm' });
+  },
+
+  setScaleRatio: (ratio) => set({ scaleRatio: ratio }),
+  setScaleUnit: (unit) => set({ scaleUnit: unit }),
+
+  setTerrain3DMode: (mode) => {
+    writeStoredTerrain3DMode(mode);
+    set({ terrain3DMode: mode });
   },
 }));

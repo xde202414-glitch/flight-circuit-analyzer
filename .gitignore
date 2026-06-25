@@ -38,6 +38,12 @@ omsdata_from_geofabrik/
 # Reference code (not part of the app)
 MAP HELI260522/
 
+# Archived files
+_archived/
+
+# Runtime data
+data/
+
 # Distribution archives
 *.zip
 *.7z

@@ -84,7 +84,6 @@ const HelipadClickHandler: React.FC = () => {
 const HelipadLayer: React.FC = () => {
   const {
     helipadCenter,
-    fatoRegion,
     approachPolygon,
     takeoffPolygon,
     fatoPolygon,
@@ -100,22 +99,7 @@ const HelipadLayer: React.FC = () => {
 
       {/* ----- Helipad centre marker ----- */}
       {helipadCenter && (
-        <Marker position={[helipadCenter.latitude, helipadCenter.longitude]} icon={helipadIcon}>
-          <Popup>
-            <Typography variant="subtitle2">起降场中心</Typography>
-            <Typography variant="caption" display="block">
-              纬度: {helipadCenter.latitude.toFixed(6)}
-            </Typography>
-            <Typography variant="caption" display="block">
-              经度: {helipadCenter.longitude.toFixed(6)}
-            </Typography>
-          </Popup>
-          <Tooltip direction="top" offset={[0, -20]} permanent={Boolean(fatoRegion)}>
-            <span style={{ fontSize: 12, background: '#fff', padding: '2px 6px', borderRadius: 4 }}>
-              起降场中心
-            </span>
-          </Tooltip>
-        </Marker>
+        <Marker position={[helipadCenter.latitude, helipadCenter.longitude]} icon={helipadIcon} />
       )}
 
       {/* ----- FATO region (circle mode) ----- */}

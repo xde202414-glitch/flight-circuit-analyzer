@@ -10,8 +10,11 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { useHelipadStore } from '../../store/useHelipadStore';
 import { useMapSettingsStore } from '../../store/useMapSettingsStore';
 import { fetchElevationGrid, type ElevationGridData } from '../../utils/elevationGrid';
+import { buildSatelliteTexture } from '../../utils/satelliteTile';
+import ThreeScaleBar from './ThreeScaleBar';
 import { apiPost } from '../../api/client';
 import type { Coordinate } from '../../types/runway';
+import { type Terrain3DMode } from '../../types/map';
 import type { BuildingResult, BuildingSearchRequest, BuildingSearchResponse, FATORegion, SurfaceStation, VisualSurfaceResult } from '../../types/helipad';
 
 // ---------------------------------------------------------------------------
@@ -20,7 +23,6 @@ import type { BuildingResult, BuildingSearchRequest, BuildingSearchResponse, FAT
 const EARTH_RADIUS_M = 6378137;
 const AIRSPACE_RADIUS_M = 5000;
 const SATELLITE_ZOOM = 15;
-const TILE_SIZE = 256;
 
 // ---------------------------------------------------------------------------
 // Mercator helpers
@@ -66,73 +68,6 @@ function computeTileRect(
   const minY = Math.floor(latToTileY(bounds.north, zoom));
   const maxY = Math.floor(latToTileY(bounds.south, zoom));
   return { minX, maxX, minY, maxY, zoom };
-}
-
-async function fetchSatelliteTile(
-  tx: number, ty: number, zoom: number, tk: string,
-): Promise<HTMLImageElement | null> {
-  const sub = ['0', '1', '2', '3'][(tx + ty) % 4];
-  const url =
-    `https://t${sub}.tianditu.gov.cn/img_w/wmts?` +
-    `SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0` +
-    `&LAYER=img&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles` +
-    `&TILEMATRIX=${zoom}&TILEROW=${ty}&TILECOL=${tx}&tk=${tk}`;
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
-}
-
-async function buildSatelliteTexture(
-  bounds: { north: number; south: number; west: number; east: number },
-  tk: string,
-): Promise<THREE.CanvasTexture | null> {
-  const rect = computeTileRect(bounds, SATELLITE_ZOOM);
-  const cols = rect.maxX - rect.minX + 1;
-  const rows = rect.maxY - rect.minY + 1;
-  if (cols <= 0 || rows <= 0 || cols > 6 || rows > 6) return null;
-
-  // Fetch all tiles
-  const tiles: (HTMLImageElement | null)[][] = [];
-  for (let row = 0; row < rows; row++) {
-    tiles[row] = [];
-    for (let col = 0; col < cols; col++) {
-      tiles[row][col] = await fetchSatelliteTile(
-        rect.minX + col, rect.minY + row, rect.zoom, tk,
-      );
-    }
-  }
-
-  // Check if we got enough tiles
-  const loaded = tiles.flat().filter(Boolean).length;
-  if (loaded === 0) return null;
-
-  // Stitch into canvas
-  const canvas = document.createElement('canvas');
-  canvas.width = cols * TILE_SIZE;
-  canvas.height = rows * TILE_SIZE;
-  const ctx = canvas.getContext('2d')!;
-
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const img = tiles[row][col];
-      if (img) {
-        ctx.drawImage(img, col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-      }
-    }
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.ClampToEdgeWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = true;
-  return texture;
 }
 
 /** Compute UV for a geographic point within the tile rect. */
@@ -408,19 +343,28 @@ function createSlopedSurface3D(
   return group;
 }
 
+function buildingColorByHeight(h: number): string {
+  if (h <= 6) return '#e8e8e8';
+  if (h <= 15) return '#dcdcdc';
+  if (h <= 30) return '#cfcfcf';
+  if (h <= 60) return '#bfbfbf';
+  if (h <= 100) return '#adadad';
+  return '#9a9a9a';
+}
+
 function createBuildingMesh3D(
   origin: Coordinate,
   b: BuildingResult,
   elevationData: ElevationGridData | null,
   originElevation: number,
+  mode: Terrain3DMode = 'terrain',
 ): THREE.Group | null {
   const group = new THREE.Group();
   const coord: Coordinate = { latitude: b.latitude, longitude: b.longitude };
   const proj = projectCoord(origin, coord);
 
-  // Ground height
   let groundH = 0;
-  if (elevationData) {
+  if (mode === 'terrain' && elevationData) {
     const { points, gridSize, spacingMeters } = elevationData;
     const halfW = ((gridSize - 1) * spacingMeters) / 2;
     const col = Math.round((proj.east + halfW) / spacingMeters);
@@ -436,11 +380,10 @@ function createBuildingMesh3D(
   const d = b.boundary ? 20 : 18;
 
   const geom = new THREE.BoxGeometry(w, h, d);
-  const mat = new THREE.MeshStandardMaterial({
-    color: '#94a3b8',
-    roughness: 0.55,
-    metalness: 0.3,
-  });
+  const color = mode === 'buildings' ? buildingColorByHeight(h) : '#94a3b8';
+  const mat = mode === 'buildings'
+    ? new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.02 })
+    : new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.55, metalness: 0.3 });
   const mesh = new THREE.Mesh(geom, mat);
   mesh.position.set(proj.east, groundH + h / 2, -proj.north);
   mesh.castShadow = true;
@@ -464,12 +407,14 @@ interface SceneProps {
   buildings: BuildingResult[];
   elevationData: ElevationGridData | null;
   tiandituKey: string;
+  terrain3DMode: Terrain3DMode;
+  onCameraReady?: (cam: THREE.PerspectiveCamera, el: HTMLElement) => void;
 }
 
 const EnhancedScene: React.FC<SceneProps> = ({
   center, elevation, fatoRegion, approachPolygon, takeoffPolygon,
   surfaceParams, approachSurfaceParams, takeoffSurfaceParams,
-  buildings, elevationData, tiandituKey,
+  buildings, elevationData, tiandituKey, terrain3DMode, onCameraReady,
 }) => {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -505,32 +450,57 @@ const EnhancedScene: React.FC<SceneProps> = ({
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
 
-    createLighting(scene);
-    scene.add(createGroundPlane());
+    onCameraReady?.(camera, container);
 
-    // Compute bounds
+    createLighting(scene);
+
+    const isBuildingsMode = terrain3DMode === 'buildings';
     const bounds = computeAreaBounds(center, AIRSPACE_RADIUS_M);
 
-    // Load satellite texture asynchronously
-    if (tiandituKey) {
-      buildSatelliteTexture(bounds, tiandituKey).then((tex) => {
-        if (tex) {
-          scene.traverse((obj) => {
-            if (obj.name === 'terrain' && obj instanceof THREE.Mesh) {
-              (obj.material as THREE.MeshStandardMaterial).map = tex;
-              (obj.material as THREE.MeshStandardMaterial).color.set('#ffffff');
-              (obj.material as THREE.MeshStandardMaterial).needsUpdate = true;
-            }
-          });
-        }
-      });
-    }
+    if (isBuildingsMode) {
+      // Flat satellite ground plane for buildings mode
+      const groundGeo = new THREE.PlaneGeometry(AIRSPACE_RADIUS_M * 3, AIRSPACE_RADIUS_M * 3);
+      const groundMat = new THREE.MeshStandardMaterial({ color: '#3a3a3a', roughness: 0.95 });
+      const groundPlane = new THREE.Mesh(groundGeo, groundMat);
+      groundPlane.rotation.x = -Math.PI / 2;
+      groundPlane.position.y = -2;
+      groundPlane.receiveShadow = true;
+      groundPlane.name = 'satellite-ground';
+      scene.add(groundPlane);
 
-    // Terrain
-    const terrainMesh = elevationData
-      ? createTerrainWithTexture(elevationData, center, elevation, null, bounds)
-      : null;
-    if (terrainMesh) scene.add(terrainMesh);
+      if (tiandituKey) {
+        buildSatelliteTexture(bounds, tiandituKey).then((tex) => {
+          if (tex) {
+            groundMat.map = tex;
+            groundMat.color.set('#ffffff');
+            groundMat.needsUpdate = true;
+          }
+        });
+      }
+    } else {
+      scene.add(createGroundPlane());
+
+      // Load satellite texture asynchronously onto terrain
+      if (tiandituKey) {
+        buildSatelliteTexture(bounds, tiandituKey).then((tex) => {
+          if (tex) {
+            scene.traverse((obj) => {
+              if (obj.name === 'terrain' && obj instanceof THREE.Mesh) {
+                (obj.material as THREE.MeshStandardMaterial).map = tex;
+                (obj.material as THREE.MeshStandardMaterial).color.set('#ffffff');
+                (obj.material as THREE.MeshStandardMaterial).needsUpdate = true;
+              }
+            });
+          }
+        });
+      }
+
+      // Terrain mesh (only in terrain mode)
+      const terrainMesh = elevationData
+        ? createTerrainWithTexture(elevationData, center, elevation, null, bounds)
+        : null;
+      if (terrainMesh) scene.add(terrainMesh);
+    }
 
     // FATO
     scene.add(createFATOMarker3D(center, center));
@@ -550,7 +520,7 @@ const EnhancedScene: React.FC<SceneProps> = ({
 
     // Buildings
     buildings.forEach((b) => {
-      const mesh = createBuildingMesh3D(center, b, elevationData, elevation);
+      const mesh = createBuildingMesh3D(center, b, elevationData, elevation, terrain3DMode);
       if (mesh) scene.add(mesh);
     });
 
@@ -585,7 +555,7 @@ const EnhancedScene: React.FC<SceneProps> = ({
         mats.forEach((m) => { m?.dispose(); });
       });
     };
-  }, [center, elevation, fatoRegion, approachPolygon, takeoffPolygon, surfaceParams, buildings, elevationData, tiandituKey]);
+  }, [center, elevation, fatoRegion, approachPolygon, takeoffPolygon, surfaceParams, buildings, elevationData, tiandituKey, terrain3DMode]);
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
 };
@@ -611,6 +581,10 @@ const Enhanced3DView: React.FC<{ enabled: boolean }> = ({ enabled }) => {
     surfaceParams, approachSurfaceParams, takeoffSurfaceParams,
   } = useHelipadStore();
   const tiandituKey = useMapSettingsStore((s) => s.tiandituKey);
+  const terrain3DMode = useMapSettingsStore((s) => s.terrain3DMode);
+
+  const scaleUnit = useMapSettingsStore((s) => s.scaleUnit);
+  const [cameraInfo, setCameraInfo] = React.useState<{ cam: THREE.PerspectiveCamera; el: HTMLElement } | null>(null);
 
   const [elevationData, setElevationData] = React.useState<ElevationGridData | null>(null);
   const [buildings, setBuildings] = React.useState<BuildingResult[]>([]);
@@ -649,6 +623,8 @@ const Enhanced3DView: React.FC<{ enabled: boolean }> = ({ enabled }) => {
           buildings={buildings}
           elevationData={elevationData}
           tiandituKey={tiandituKey}
+          terrain3DMode={terrain3DMode}
+          onCameraReady={(cam, el) => setCameraInfo({ cam, el })}
         />
       )}
       {loading && (
@@ -658,13 +634,17 @@ const Enhanced3DView: React.FC<{ enabled: boolean }> = ({ enabled }) => {
           </Alert>
         </Box>
       )}
+      {cameraInfo && (
+        <ThreeScaleBar camera={cameraInfo.cam} container={cameraInfo.el} unit={scaleUnit} />
+      )}
       <Box sx={{
-        position: 'absolute', left: 12, bottom: 12, zIndex: 2,
+        position: 'absolute', right: 12, bottom: 12, zIndex: 2,
         px: 1.5, py: 0.75, borderRadius: 1,
         bgcolor: 'rgba(15,23,42,0.8)', color: '#fff',
       }}>
         <Typography variant="caption">
-          高程 {elevationData?.validCount ?? 0}/{elevationData?.totalCount ?? 0}
+          {terrain3DMode === 'buildings' ? '建筑群' : '地形'}
+          {' · '}高程 {elevationData?.validCount ?? 0}/{elevationData?.totalCount ?? 0}
           {' · '}建筑 {buildings.length}
           {' · '}卫星影像: {tiandituKey ? '天地图' : '关闭'}
           {' · '}拖拽旋转 · 滚轮缩放

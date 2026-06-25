@@ -1,149 +1,80 @@
 import React from 'react';
-import { ThemeProvider, createTheme, CssBaseline, AppBar, Toolbar, Typography, Box, ToggleButtonGroup, ToggleButton } from '@mui/material';
-import RunwayForm from './components/RunwayForm/RunwayForm';
-import AircraftSelector from './components/AircraftSelector/AircraftSelector';
-import MapView from './components/MapView/MapView';
-import TrackAnalysis from './components/TrackAnalysis/TrackAnalysis';
+import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
+import RunwayPage from './modules/runway/RunwayPage';
+import HelipadPage from './modules/helipad/HelipadPage';
+import RouteManagementPage from './modules/route-management/RouteManagementPage';
+import DataImportPage from './modules/data-import/DataImportPage';
+import RouteAnalysisPage from './modules/route-analysis/RouteAnalysisPage';
+import TakeoffFlightPage from './modules/takeoff-flight/TakeoffFlightPage';
+import IotLayoutPage from './modules/iot-layout/IotLayoutPage';
 import StatusBar from './components/StatusBar/StatusBar';
-import HelipadPanel from './components/HelipadAnalysis/HelipadPanel';
-import { useRunwayStore } from './store/useRunwayStore';
-import { useHelipadStore } from './store/useHelipadStore';
-import type { AnalysisMode } from './store/useHelipadStore';
 
-// Create MUI theme
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-    background: {
-      default: '#f5f5f5',
-    },
-  },
-  typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h6: {
-      fontWeight: 600,
-    },
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 8,
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 8,
-          },
-        },
-      },
-    },
-  },
-});
+const NAV_ITEMS = [
+  { path: '/runway', label: '跑道程序', icon: '🛫', id: 'runway' },
+  { path: '/helipad', label: '起降场分析', icon: '🚁', id: 'helipad' },
+  { path: '/routes', label: '航路管理', icon: '🛣️', id: 'routes' },
+  { path: '/import', label: '数据导入', icon: '📥', id: 'import' },
+  { path: '/analysis', label: '航路分析', icon: '📊', id: 'analysis' },
+  { path: '/takeoff', label: '起降场飞行', icon: '✈️', id: 'takeoff' },
+  { path: '/iot', label: '智联网布局', icon: '🔗', id: 'iot' },
+];
 
-/**
- * Main Application Component
- * Flight Circuit Analyzer - 飞行营地飞行程序分析工具
- */
 const App: React.FC = () => {
-  const { runwayParams } = useRunwayStore();
-  const { analysisMode, setAnalysisMode, helipadCenter } = useHelipadStore();
+  const location = useLocation();
 
-  const mapCenter: [number, number] =
-    analysisMode === 'helipad' && helipadCenter
-      ? [helipadCenter.latitude, helipadCenter.longitude]
-      : runwayParams?.coordinate
-        ? [runwayParams.coordinate.latitude, runwayParams.coordinate.longitude]
-        : [30.2741, 120.1551];
+  const currentNav = NAV_ITEMS.find(item =>
+    location.pathname === item.path || location.pathname.startsWith(item.path + '/')
+  );
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box sx={{ flexGrow: 1, height: '100vh', display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
-        <AppBar position="static" elevation={1}>
-          <Toolbar>
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              飞行营地飞行程序分析工具
-            </Typography>
-
-            {/* Mode Toggle */}
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={analysisMode}
-              onChange={(_, val: AnalysisMode | null) => {
-                if (val) setAnalysisMode(val);
-              }}
-              sx={{
-                bgcolor: 'rgba(255,255,255,0.15)',
-                '& .MuiToggleButton-root': {
-                  color: 'rgba(255,255,255,0.7)',
-                  borderColor: 'rgba(255,255,255,0.3)',
-                  px: 2,
-                },
-                '& .Mui-selected': {
-                  bgcolor: 'rgba(255,255,255,0.25)',
-                  color: '#fff',
-                },
-              }}
+    <div className="dashboard">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-icon">✈</div>
+          <span className="sidebar-logo-text">飞行程序分析系统</span>
+        </div>
+        <nav className="sidebar-nav">
+          {NAV_ITEMS.map(item => (
+            <NavLink
+              key={item.id}
+              to={item.path}
+              className={({ isActive }) =>
+                `sidebar-nav-item${isActive ? ' active' : ''}`
+              }
             >
-              <ToggleButton value="runway">跑道程序</ToggleButton>
-              <ToggleButton value="helipad">起降场分析</ToggleButton>
-            </ToggleButtonGroup>
-          </Toolbar>
-        </AppBar>
+              <span className="sidebar-nav-icon">{item.icon}</span>
+              <span className="sidebar-nav-label">{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+        <div className="sidebar-footer">Flight Procedure Analyzer v2.0</div>
+      </aside>
 
-        {/* Main Content */}
-        <Box className="main-container">
-          {/* Left Panel - Parameter Input */}
-          <Box className="left-panel">
-            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', mb: 2 }}>
-              {analysisMode === 'helipad' ? '起降场参数配置' : '参数配置'}
-            </Typography>
+      {/* Main Content */}
+      <div className="main-content">
+        <header className="topbar">
+          <span className="topbar-breadcrumb">飞行程序分析系统</span>
+          <span style={{ color: '#cbd5e1' }}>/</span>
+          <span className="topbar-title">{currentNav?.label || '首页'}</span>
+          <div className="topbar-spacer" />
+        </header>
 
-            {analysisMode === 'helipad' ? (
-              <HelipadPanel />
-            ) : (
-              <>
-                {/* Runway Parameters Form */}
-                <RunwayForm />
-
-                {/* Aircraft Selector */}
-                <AircraftSelector />
-              </>
-            )}
-          </Box>
-
-          {/* Right Panel - Map & Analysis */}
-          <Box className="right-panel">
-            {/* Map Container */}
-            <Box className="map-container">
-              <MapView
-                center={mapCenter}
-                zoom={13}
-              />
-            </Box>
-
-            {/* Analysis Panel (runway mode only) */}
-            {analysisMode === 'runway' && (
-              <Box className="analysis-panel">
-                <TrackAnalysis />
-              </Box>
-            )}
-          </Box>
-        </Box>
+        <div className="page-content">
+          <Routes>
+            <Route path="/" element={<RunwayPage />} />
+            <Route path="/runway" element={<RunwayPage />} />
+            <Route path="/helipad" element={<HelipadPage />} />
+            <Route path="/routes" element={<RouteManagementPage />} />
+            <Route path="/import" element={<DataImportPage />} />
+            <Route path="/analysis" element={<RouteAnalysisPage />} />
+            <Route path="/takeoff" element={<TakeoffFlightPage />} />
+            <Route path="/iot" element={<IotLayoutPage />} />
+          </Routes>
+        </div>
         <StatusBar />
-      </Box>
-    </ThemeProvider>
+      </div>
+    </div>
   );
 };
 

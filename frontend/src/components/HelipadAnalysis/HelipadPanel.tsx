@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Box,
   Button,
+  Chip,
   CircularProgress,
   FormControl,
   FormControlLabel,
@@ -19,6 +20,9 @@ import {
 import { useHelipadStore } from '../../store/useHelipadStore';
 import type { FATOSlopeType, FATOShape, OperationMode } from '../../types/helipad';
 import { useStatusStore } from '../../store/useStatusStore';
+import { useMapSettingsStore } from '../../store/useMapSettingsStore';
+import { SCALE_PRESETS, SCALE_UNITS } from '../../types/map';
+import type { ScaleUnit } from '../../types/map';
 
 const SHAPE_OPTIONS: Array<{ value: FATOShape; label: string }> = [
   { value: 'circle', label: '圆形' },
@@ -51,6 +55,7 @@ const HelipadPanel: React.FC = () => {
   } = useHelipadStore();
 
   const setStatus = useStatusStore((s) => s.setStatus);
+  const { scaleRatio, scaleUnit, setScaleRatio, setScaleUnit } = useMapSettingsStore();
 
   // Local draft state for the config form
   const [draftShape, setDraftShape] = useState<FATOShape>(fatoConfig.shape);
@@ -319,6 +324,68 @@ const HelipadPanel: React.FC = () => {
           </ToggleButtonGroup>
         </Box>
       </Stack>
+
+      {/* Scale Ratio Control */}
+      <Box sx={{ mb: 2, border: '1px solid #e0e0e0', borderRadius: 1, p: 1.5 }}>
+        <Typography variant="body2" fontWeight={500} gutterBottom>
+          比例尺设置
+        </Typography>
+
+        {/* Unit selector */}
+        <FormControl size="small" fullWidth sx={{ mb: 1 }}>
+          <InputLabel>单位</InputLabel>
+          <Select
+            label="单位"
+            value={scaleUnit}
+            onChange={(e) => setScaleUnit(e.target.value as ScaleUnit)}
+          >
+            {SCALE_UNITS.map((u) => (
+              <MenuItem key={u.value} value={u.value}>{u.label}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* Preset ratio chips */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
+          <Chip
+            label="自动"
+            size="small"
+            variant={scaleRatio === 0 ? 'filled' : 'outlined'}
+            color={scaleRatio === 0 ? 'primary' : 'default'}
+            onClick={() => setScaleRatio(0)}
+          />
+          {SCALE_PRESETS.map((preset) => (
+            <Chip
+              key={preset}
+              label={`1:${preset.toLocaleString()}`}
+              size="small"
+              variant={scaleRatio === preset ? 'filled' : 'outlined'}
+              color={scaleRatio === preset ? 'primary' : 'default'}
+              onClick={() => setScaleRatio(preset)}
+            />
+          ))}
+        </Box>
+
+        {/* Custom scale ratio input */}
+        <TextField
+          fullWidth
+          size="small"
+          type="number"
+          label="自定义比例尺（1:N）"
+          value={scaleRatio > 0 && !SCALE_PRESETS.includes(scaleRatio) ? String(scaleRatio) : ''}
+          onChange={(e) => {
+            const v = parseInt(e.target.value, 10);
+            if (!isNaN(v) && v > 0) {
+              setScaleRatio(v);
+            } else if (e.target.value === '') {
+              setScaleRatio(0);
+            }
+          }}
+          placeholder="输入分母，如 500 表示 1:500"
+          inputProps={{ min: 1 }}
+          sx={{ mt: 0.5 }}
+        />
+      </Box>
 
       {/* Actions */}
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}>

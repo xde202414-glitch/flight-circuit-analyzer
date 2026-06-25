@@ -13,6 +13,8 @@ interface RunwayMarkerProps {
   bearing: number;
   /** Runway length in meters */
   length: number;
+  /** Whether to show the runway center label */
+  showKeyPoints?: boolean;
 }
 
 /**
@@ -70,7 +72,7 @@ function calculateRunwayEndpoints(
  * RunwayMarker Component
  * Renders runway as a line with direction indicator
  */
-const RunwayMarker: React.FC<RunwayMarkerProps> = ({ position, bearing, length }) => {
+const RunwayMarker: React.FC<RunwayMarkerProps> = ({ position, bearing, length, showKeyPoints = true }) => {
   const map = useMap();
   
   React.useEffect(() => {
@@ -97,17 +99,20 @@ const RunwayMarker: React.FC<RunwayMarkerProps> = ({ position, bearing, length }
     runwayLine.addTo(map);
     
     // Create runway center marker
-    const centerMarker = L.marker(new L.LatLng(position[0], position[1]), {
-      icon: L.divIcon({
-        className: 'runway-center-marker',
-        html: `<div style="background: #1976d2; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">跑道中心 ${bearing.toFixed(0)}°/${((bearing + 180) % 360).toFixed(0)}°</div>`,
-        iconSize: [120, 24],
-        iconAnchor: [60, 12],
-      }),
-    });
-    
-    centerMarker.addTo(map);
-    
+    let centerMarker: L.Marker | null = null;
+    if (showKeyPoints) {
+      centerMarker = L.marker(new L.LatLng(position[0], position[1]), {
+        icon: L.divIcon({
+          className: 'runway-center-marker',
+          html: `<div style="background: #1976d2; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">跑道中心 ${bearing.toFixed(0)}°/${((bearing + 180) % 360).toFixed(0)}°</div>`,
+          iconSize: [120, 24],
+          iconAnchor: [60, 12],
+        }),
+      });
+
+      centerMarker.addTo(map);
+    }
+
     // Create direction arrow indicator
     // Arrow pointing in bearing direction
     const arrowPosition = endpoints.threshold1;
@@ -117,20 +122,20 @@ const RunwayMarker: React.FC<RunwayMarkerProps> = ({ position, bearing, length }
       iconSize: [30, 30],
       iconAnchor: [15, 15],
     });
-    
+
     const arrowMarker = L.marker(new L.LatLng(arrowPosition[0], arrowPosition[1]), {
       icon: arrowIcon,
     });
-    
+
     arrowMarker.addTo(map);
-    
+
     // Cleanup on unmount
     return () => {
       runwayLine.remove();
-      centerMarker.remove();
+      centerMarker?.remove();
       arrowMarker.remove();
     };
-  }, [map, position, bearing, length]);
+  }, [map, position, bearing, length, showKeyPoints]);
   
   return null;
 };

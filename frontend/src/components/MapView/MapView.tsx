@@ -21,7 +21,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import BaseMapLayer from './BaseMapLayer';
 import L from 'leaflet';
 import TrackLayer from './TrackLayer';
 import RunwayMarker from './RunwayMarker';
@@ -39,6 +40,8 @@ import {
   BaseMapType,
   PoiSearchBounds,
   PoiSearchResult,
+  SCALE_UNITS,
+  type Terrain3DMode,
 } from '../../types/map';
 import { Coordinate } from '../../types/runway';
 import { searchPoi } from '../../utils/poiSearch';
@@ -64,18 +67,7 @@ interface PendingRunwayCoordinate {
 
 type MapMode = '2d' | '3d';
 
-const TIANDITU_SUBDOMAINS = ['0', '1', '2', '3', '4', '5', '6', '7'];
 const POI_SEARCH_RADIUS_METERS = 5000;
-
-function getTiandituWMTSUrl(endpoint: string, apiKey: string): string {
-  const layerName = endpoint.replace('_w', '');
-  return (
-    `https://t{s}.tianditu.gov.cn/${endpoint}/wmts?` +
-    `SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layerName}` +
-    `&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}` +
-    `&TILEROW={y}&TILECOL={x}&tk=${apiKey}`
-  );
-}
 
 function boundsAroundCoordinate(
   coordinate: Coordinate,
@@ -131,81 +123,6 @@ const MapVisibilityUpdater: React.FC<{ visible: boolean }> = ({ visible }) => {
   return null;
 };
 
-const BaseMapLayer: React.FC = () => {
-  const baseMapType = useMapSettingsStore((state) => state.baseMapType);
-  const tiandituKey = useMapSettingsStore((state) => state.tiandituKey);
-  const effectiveBaseMap: BaseMapType =
-    baseMapType === 'osm' || tiandituKey ? baseMapType : 'osm';
-
-  if (effectiveBaseMap === 'tianditu-vector') {
-    return (
-      <>
-        <TileLayer
-          key="tianditu-vector-base"
-          attribution="天地图"
-          maxZoom={18}
-          subdomains={TIANDITU_SUBDOMAINS}
-          url={getTiandituWMTSUrl('vec_w', tiandituKey)}
-        />
-        <TileLayer
-          key="tianditu-vector-label"
-          maxZoom={18}
-          subdomains={TIANDITU_SUBDOMAINS}
-          url={getTiandituWMTSUrl('cva_w', tiandituKey)}
-        />
-      </>
-    );
-  }
-
-  if (effectiveBaseMap === 'tianditu-image') {
-    return (
-      <>
-        <TileLayer
-          key="tianditu-image-base"
-          attribution="天地图"
-          maxZoom={18}
-          subdomains={TIANDITU_SUBDOMAINS}
-          url={getTiandituWMTSUrl('img_w', tiandituKey)}
-        />
-        <TileLayer
-          key="tianditu-image-label"
-          maxZoom={18}
-          subdomains={TIANDITU_SUBDOMAINS}
-          url={getTiandituWMTSUrl('cia_w', tiandituKey)}
-        />
-      </>
-    );
-  }
-
-  if (effectiveBaseMap === 'tianditu-terrain') {
-    return (
-      <>
-        <TileLayer
-          key="tianditu-terrain-base"
-          attribution="天地图"
-          maxZoom={18}
-          subdomains={TIANDITU_SUBDOMAINS}
-          url={getTiandituWMTSUrl('ter_w', tiandituKey)}
-        />
-        <TileLayer
-          key="tianditu-terrain-label"
-          maxZoom={18}
-          subdomains={TIANDITU_SUBDOMAINS}
-          url={getTiandituWMTSUrl('cta_w', tiandituKey)}
-        />
-      </>
-    );
-  }
-
-  return (
-    <TileLayer
-      key="osm"
-      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      maxZoom={19}
-      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-    />
-  );
-};
 
 const RunwayClickSelector: React.FC = () => {
   const setRunwayParams = useRunwayStore((state) => state.setRunwayParams);
@@ -522,6 +439,8 @@ interface MapToolbarProps {
   setMapMode: (mode: MapMode) => void;
   showAnnotations: boolean;
   setShowAnnotations: (show: boolean) => void;
+  showKeyPoints: boolean;
+  setShowKeyPoints: (show: boolean) => void;
   showTrack: boolean;
   setShowTrack: (show: boolean) => void;
   showSurfaces: boolean;
@@ -531,6 +450,8 @@ interface MapToolbarProps {
   showAirspaces: boolean;
   setShowAirspaces: (show: boolean) => void;
   hasTrackResult: boolean;
+  terrain3DMode: Terrain3DMode;
+  setTerrain3DMode: (mode: Terrain3DMode) => void;
   getSearchContext: () => { bounds: PoiSearchBounds; zoom: number };
   onPoiSelected: (poi: PoiSearchResult) => void;
 }
@@ -540,6 +461,8 @@ const MapToolbar: React.FC<MapToolbarProps> = ({
   setMapMode,
   showAnnotations,
   setShowAnnotations,
+  showKeyPoints,
+  setShowKeyPoints,
   showTrack,
   setShowTrack,
   showSurfaces,
@@ -549,6 +472,8 @@ const MapToolbar: React.FC<MapToolbarProps> = ({
   showAirspaces,
   setShowAirspaces,
   hasTrackResult,
+  terrain3DMode,
+  setTerrain3DMode,
   getSearchContext,
   onPoiSelected,
 }) => {
@@ -598,6 +523,27 @@ const MapToolbar: React.FC<MapToolbarProps> = ({
             三维场景
           </Button>
         </Stack>
+
+        {mapMode === '3d' && (
+          <Stack direction="row" spacing={0.5}>
+            <Button
+              size="small"
+              variant={terrain3DMode === 'terrain' ? 'contained' : 'outlined'}
+              onClick={() => setTerrain3DMode('terrain')}
+              sx={{ fontSize: 11 }}
+            >
+              地形
+            </Button>
+            <Button
+              size="small"
+              variant={terrain3DMode === 'buildings' ? 'contained' : 'outlined'}
+              onClick={() => setTerrain3DMode('buildings')}
+              sx={{ fontSize: 11 }}
+            >
+              建筑群
+            </Button>
+          </Stack>
+        )}
 
         {mapMode === '2d' && (
           <>
@@ -678,6 +624,17 @@ const MapToolbar: React.FC<MapToolbarProps> = ({
                   label="程序标注"
                   sx={{ m: 0 }}
                 />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={showKeyPoints}
+                      onChange={(event) => setShowKeyPoints(event.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label="关键点标注"
+                  sx={{ m: 0 }}
+                />
               </Stack>
             )}
           </>
@@ -694,13 +651,70 @@ const MapToolbar: React.FC<MapToolbarProps> = ({
   );
 };
 
+/**
+ * Leaflet scale control component — adds L.control.scale to the map.
+ * Reacts to unit changes from the map settings store.
+ */
+const ScaleBarControl: React.FC = () => {
+  const map = useMap();
+  const scaleUnit = useMapSettingsStore((s) => s.scaleUnit);
+
+  React.useEffect(() => {
+    const unitDef = SCALE_UNITS.find((u) => u.value === scaleUnit) ?? SCALE_UNITS[0];
+    const ctrl = L.control.scale({
+      metric: unitDef.value === 'm' || unitDef.value === 'km',
+      imperial: unitDef.value === 'ft' || unitDef.value === 'NM',
+      maxWidth: 150,
+      position: 'bottomleft',
+    });
+    ctrl.addTo(map);
+    return () => { ctrl.remove(); };
+  }, [map, scaleUnit]);
+
+  return null;
+};
+
+/**
+ * Listens for scale-ratio changes and adjusts the Leaflet map zoom accordingly.
+ * scaleRatio=0 means "auto" — no forced zoom.
+ */
+const ScaleZoomHandler: React.FC = () => {
+  const map = useMap();
+  const scaleRatio = useMapSettingsStore((s) => s.scaleRatio);
+  const scaleUnit = useMapSettingsStore((s) => s.scaleUnit);
+
+  React.useEffect(() => {
+    if (scaleRatio <= 0) return;
+
+    const unitDef = SCALE_UNITS.find((u) => u.value === scaleUnit) ?? SCALE_UNITS[0];
+    const scaleMetersPerUnit = scaleRatio * unitDef.metersPerUnit;
+    const center = map.getCenter();
+    const latRad = (center.lat * Math.PI) / 180;
+    // Leaflet resolution at zoom z: 156543.03 * cos(lat) / 2^z  meters/pixel
+    // At 96 DPI: 1 pixel = 0.0254/96 = 0.000264583 meters on screen
+    // Scale 1:S: S ground units = S * metersPerUnit ground meters
+    const screenMetersPerPixel = 0.0254 / 96;
+    const targetRes = scaleMetersPerUnit * screenMetersPerPixel;
+    const targetZoom = Math.log2((156543.03 * Math.cos(latRad)) / targetRes);
+    // Leaflet supports fractional zooms beyond tile maxNativeZoom by
+    // overzooming (scaling tiles), so clamp loosely at 24.
+    const clampedZoom = Math.max(2, Math.min(24, targetZoom));
+    map.setZoom(clampedZoom, { animate: true });
+  }, [map, scaleRatio, scaleUnit]);
+
+  return null;
+};
+
 const MapView: React.FC<MapViewProps> = ({ center, zoom }) => {
   const { runwayParams } = useRunwayStore();
   const trackResult = useTrackStore((state) => state.trackResult);
   const { analysisMode } = useHelipadStore();
   const tiandituKey = useMapSettingsStore((state) => state.tiandituKey);
+  const terrain3DMode = useMapSettingsStore((state) => state.terrain3DMode);
+  const setTerrain3DMode = useMapSettingsStore((state) => state.setTerrain3DMode);
   const initializeMapSettings = useMapSettingsStore((state) => state.initialize);
   const [showAnnotations, setShowAnnotations] = React.useState(true);
+  const [showKeyPoints, setShowKeyPoints] = React.useState(true);
   const [showTrack, setShowTrack] = React.useState(true);
   const [showSurfaces, setShowSurfaces] = React.useState(true);
   const [showEnvelope, setShowEnvelope] = React.useState(true);
@@ -763,6 +777,7 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom }) => {
               position={[runwayParams.coordinate.latitude, runwayParams.coordinate.longitude]}
               bearing={runwayParams.magneticBearing}
               length={runwayParams.length}
+              showKeyPoints={showKeyPoints}
             />
           )}
 
@@ -770,6 +785,7 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom }) => {
             <TrackLayer
               result={trackResult}
               showAnnotations={showAnnotations}
+              showKeyPoints={showKeyPoints}
               showTrack={showTrack}
               showSurfaces={showSurfaces}
               showEnvelope={showEnvelope}
@@ -778,6 +794,9 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom }) => {
           )}
 
           {isHelipadMode && <HelipadLayer />}
+
+          <ScaleBarControl />
+          <ScaleZoomHandler />
 
           <PoiMarkerLayer poi={selectedPoi} />
         </MapContainer>
@@ -812,7 +831,14 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom }) => {
             )}
           </>
         ) : runwayParams ? (
-          <Map3DView runwayParams={runwayParams} trackResult={trackResult} enabled={mapMode === '3d'} />
+          <Map3DView
+            runwayParams={runwayParams}
+            trackResult={trackResult}
+            enabled={mapMode === '3d'}
+            terrain3DMode={terrain3DMode}
+            tiandituKey={tiandituKey}
+            showKeyPoints={showKeyPoints}
+          />
         ) : (
           <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Alert severity="info">请先配置跑道参数</Alert>
@@ -825,6 +851,8 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom }) => {
         setMapMode={setMapMode}
         showAnnotations={showAnnotations}
         setShowAnnotations={setShowAnnotations}
+        showKeyPoints={showKeyPoints}
+        setShowKeyPoints={setShowKeyPoints}
         showTrack={showTrack}
         setShowTrack={setShowTrack}
         showSurfaces={showSurfaces}
@@ -834,6 +862,8 @@ const MapView: React.FC<MapViewProps> = ({ center, zoom }) => {
         showAirspaces={showAirspaces}
         setShowAirspaces={setShowAirspaces}
         hasTrackResult={Boolean(trackResult)}
+        terrain3DMode={terrain3DMode}
+        setTerrain3DMode={setTerrain3DMode}
         getSearchContext={getSearchContext}
         onPoiSelected={setSelectedPoi}
       />

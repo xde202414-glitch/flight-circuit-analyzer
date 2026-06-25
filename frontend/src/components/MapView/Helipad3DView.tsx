@@ -6,7 +6,9 @@ import type { Coordinate } from '../../types/runway';
 import type { BuildingResult, FATORegion, SurfaceStation, VisualSurfaceResult } from '../../types/helipad';
 import { fetchElevationGrid, buildTerrainMesh, type ElevationGridData } from '../../utils/elevationGrid';
 import { useHelipadStore } from '../../store/useHelipadStore';
+import { useMapSettingsStore } from '../../store/useMapSettingsStore';
 import { apiPost } from '../../api/client';
+import ThreeScaleBar from './ThreeScaleBar';
 import type { BuildingSearchRequest, BuildingSearchResponse } from '../../types/helipad';
 
 // ---------------------------------------------------------------------------
@@ -239,6 +241,7 @@ interface Helipad3DSceneProps {
   takeoffSurfaceParams: VisualSurfaceResult | null;
   buildings: BuildingResult[];
   elevationData: ElevationGridData | null;
+  onCameraReady?: (cam: THREE.PerspectiveCamera, el: HTMLElement) => void;
 }
 
 const Helipad3DScene: React.FC<Helipad3DSceneProps> = ({
@@ -252,6 +255,7 @@ const Helipad3DScene: React.FC<Helipad3DSceneProps> = ({
   takeoffSurfaceParams,
   buildings,
   elevationData,
+  onCameraReady,
 }) => {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -280,6 +284,9 @@ const Helipad3DScene: React.FC<Helipad3DSceneProps> = ({
     controls.minDistance = 300;
     controls.maxDistance = 10000;
     controls.enableDamping = true;
+
+    // Notify parent of camera for scale bar
+    onCameraReady?.(camera, container);
 
     // Lighting
     scene.add(new THREE.AmbientLight('#ffffff', 0.9));
@@ -371,6 +378,9 @@ const Helipad3DView: React.FC<{ enabled: boolean }> = ({ enabled }) => {
     takeoffSurfaceParams,
   } = useHelipadStore();
 
+  const scaleUnit = useMapSettingsStore((s) => s.scaleUnit);
+  const [cameraInfo, setCameraInfo] = React.useState<{ cam: THREE.PerspectiveCamera; el: HTMLElement } | null>(null);
+
   const [elevationData, setElevationData] = React.useState<ElevationGridData | null>(null);
   const [buildings, setBuildings] = React.useState<BuildingResult[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -416,6 +426,7 @@ const Helipad3DView: React.FC<{ enabled: boolean }> = ({ enabled }) => {
           takeoffSurfaceParams={takeoffSurfaceParams}
           buildings={buildings}
           elevationData={elevationData}
+          onCameraReady={(cam, el) => setCameraInfo({ cam, el })}
         />
       )}
       {(loading) && (
@@ -423,8 +434,11 @@ const Helipad3DView: React.FC<{ enabled: boolean }> = ({ enabled }) => {
           <Alert severity="info" icon={<CircularProgress size={18} />}>{msg}</Alert>
         </Box>
       )}
+      {cameraInfo && (
+        <ThreeScaleBar camera={cameraInfo.cam} container={cameraInfo.el} unit={scaleUnit} />
+      )}
       <Box sx={{
-        position: 'absolute', left: 12, bottom: 12, zIndex: 2,
+        position: 'absolute', right: 12, bottom: 12, zIndex: 2,
         px: 1.5, py: 0.75, borderRadius: 1,
         bgcolor: 'rgba(15,23,42,0.72)', color: '#fff',
       }}>

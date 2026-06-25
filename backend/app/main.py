@@ -8,6 +8,8 @@ from contextlib import asynccontextmanager
 
 from app.config import settings
 from app.api import runway, aircraft, track, config, elevation, buildings, helipad
+from app.routers_route10 import route_router, analysis_router, export_router, import_router, map_router
+from app.database_route import init_db as init_route_db
 
 
 @asynccontextmanager
@@ -18,6 +20,12 @@ async def lifespan(app: FastAPI):
     print(f"   API 地址: http://{settings.host}:{settings.port}{settings.api_prefix}")
     print(f"   前端页面: http://localhost:{settings.port}")
     print(f"   API 文档: http://localhost:{settings.port}/docs")
+    # Initialize Route 10 database
+    try:
+        init_route_db()
+        print("   航路数据库已初始化")
+    except Exception as e:
+        print(f"   航路数据库初始化警告: {e}")
     yield
     # Shutdown
     print(f"[关闭] {settings.app_name}")
@@ -27,7 +35,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    description="飞行营地五边航迹计算与可视化工具后端API",
+    description="飞行营地五边航迹计算与可视化工具后端API - 集成低空公共航路管理中心",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -42,7 +50,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API routers
+# Include API routers - Flight Circuit Analyzer
 app.include_router(runway.router, prefix=settings.api_prefix, tags=["跑道参数"])
 app.include_router(aircraft.router, prefix=settings.api_prefix, tags=["机型库"])
 app.include_router(track.router, prefix=settings.api_prefix, tags=["航迹计算"])
@@ -50,6 +58,13 @@ app.include_router(config.router, prefix=settings.api_prefix, tags=["map-config"
 app.include_router(elevation.router, prefix=settings.api_prefix, tags=["elevation"])
 app.include_router(buildings.router, prefix=settings.api_prefix, tags=["buildings"])
 app.include_router(helipad.router, prefix=settings.api_prefix, tags=["helipad"])
+
+# Include API routers - Route 10 (航路管理)
+app.include_router(route_router.router, prefix=settings.api_prefix, tags=["航路管理"])
+app.include_router(analysis_router.router, prefix=settings.api_prefix, tags=["航路分析"])
+app.include_router(export_router.router, prefix=settings.api_prefix, tags=["数据导出"])
+app.include_router(import_router.router, prefix=settings.api_prefix, tags=["数据导入"])
+app.include_router(map_router.router, prefix=settings.api_prefix, tags=["地图配置"])
 
 
 @app.get("/health")

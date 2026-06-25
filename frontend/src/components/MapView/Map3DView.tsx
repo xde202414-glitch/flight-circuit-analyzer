@@ -4,7 +4,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RunwayParams, Coordinate } from '../../types/runway';
 import { GeometryOverlay, TrackResult, TrackSegment, TRACK_COLORS } from '../../types/track';
+import { type Terrain3DMode } from '../../types/map';
 import { fetchElevationGrid, buildTerrainMesh, sampleTerrainHeight, type ElevationGridData } from '../../utils/elevationGrid';
+import { buildSatelliteTexture } from '../../utils/satelliteTile';
 
 const AIRSPACE_RADIUS_M = 5000;
 const EARTH_RADIUS_M = 6378137;
@@ -16,6 +18,9 @@ interface Map3DViewProps {
   runwayParams: RunwayParams;
   trackResult: TrackResult | null;
   enabled: boolean;
+  terrain3DMode: Terrain3DMode;
+  tiandituKey: string;
+  showKeyPoints?: boolean;
 }
 
 interface OsmPoint {
@@ -111,42 +116,6 @@ const normalizeElementGeometry = (element: OsmElement): Coordinate[] =>
     latitude: point.lat,
     longitude: point.lon,
   }));
-
-interface AmapBuilding {
-  id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  type: string;
-  address: string;
-}
-
-async function fetchAmapBuildings(center: Coordinate): Promise<AmapBuilding[]> {
-  try {
-    const params = new URLSearchParams({
-      latitude: String(center.latitude),
-      longitude: String(center.longitude),
-      radius: String(AIRSPACE_RADIUS_M),
-    });
-    const resp = await fetch(`/api/v1/buildings/amap?${params}`);
-    if (!resp.ok) return [];
-    const json = await resp.json();
-    if (json.code !== 200) return [];
-    return json.data.buildings as AmapBuilding[];
-  } catch {
-    return [];
-  }
-}
-
-/** Create a simple box building from a single coordinate (for POI buildings without footprints). */
-function createSimpleBuilding(origin: Coordinate, lat: number, lon: number, heightM = 20): THREE.Mesh {
-  const proj = projectCoordinate(origin, { latitude: lat, longitude: lon });
-  const geom = new THREE.BoxGeometry(30, heightM, 30);
-  const mat = new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.65, metalness: 0.1 });
-  const mesh = new THREE.Mesh(geom, mat);
-  mesh.position.set(proj.east, heightM / 2, -proj.north);
-  return mesh;
-}
 
 async function fetchOsmScene(center: Coordinate, signal: AbortSignal) {
   const bbox = buildBoundingBox(center, AIRSPACE_RADIUS_M);
@@ -246,7 +215,20 @@ const createTextSprite = (text: string): THREE.Sprite => {
   return sprite;
 };
 
-const createBuildingMesh = (origin: Coordinate, building: BuildingFeature): THREE.Mesh | null => {
+function buildingColorByHeight(heightM: number): string {
+  if (heightM <= 6) return '#e8e8e8';
+  if (heightM <= 15) return '#dcdcdc';
+  if (heightM <= 30) return '#cfcfcf';
+  if (heightM <= 60) return '#bfbfbf';
+  if (heightM <= 100) return '#adadad';
+  return '#9a9a9a';
+}
+
+const createBuildingMesh = (
+  origin: Coordinate,
+  building: BuildingFeature,
+  mode: Terrain3DMode = 'terrain',
+): THREE.Mesh | null => {
   const points = building.geometry.map((point) => {
     const projected = projectCoordinate(origin, point);
     return new THREE.Vector2(projected.east, -projected.north);
@@ -261,18 +243,34 @@ const createBuildingMesh = (origin: Coordinate, building: BuildingFeature): THRE
   }
 
   const shape = new THREE.Shape(points);
+  const height = parseBuildingHeight(building.tags);
   const geometry = new THREE.ExtrudeGeometry(shape, {
     steps: 1,
-    depth: parseBuildingHeight(building.tags),
+    depth: height,
     bevelEnabled: false,
   });
-  const material = new THREE.MeshStandardMaterial({
-    color: '#9ca3af',
-    roughness: 0.72,
-    metalness: 0.08,
-  });
+
+  const color = mode === 'buildings'
+    ? buildingColorByHeight(height)
+    : '#9ca3af';
+
+  const material = mode === 'buildings'
+    ? new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.35,
+        metalness: 0.02,
+        flatShading: false,
+      })
+    : new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.72,
+        metalness: 0.08,
+      });
+
   const mesh = new THREE.Mesh(geometry, material);
   mesh.rotation.x = -Math.PI / 2;
+  mesh.castShadow = mode === 'buildings';
+  mesh.receiveShadow = mode === 'buildings';
   return mesh;
 };
 
@@ -302,7 +300,7 @@ const createAirspaceGroup = (): THREE.Group => {
   return group;
 };
 
-const createRunwayGroup = (runway: RunwayParams, runwayWidth?: number): THREE.Group => {
+const createRunwayGroup = (runway: RunwayParams, runwayWidth?: number, showKeyPoints = true): THREE.Group => {
   const group = new THREE.Group();
   const rwWidth = runwayWidth && runwayWidth > 0 ? runwayWidth : 18;
   const runwayMesh = new THREE.Mesh(
@@ -320,9 +318,11 @@ const createRunwayGroup = (runway: RunwayParams, runwayWidth?: number): THREE.Gr
   centerMarker.position.y = 50;
   group.add(centerMarker);
 
-  const label = createTextSprite('跑道中心');
-  label.position.set(0, 130, 0);
-  group.add(label);
+  if (showKeyPoints) {
+    const label = createTextSprite('跑道中心');
+    label.position.set(0, 130, 0);
+    group.add(label);
+  }
   return group;
 };
 
@@ -340,15 +340,6 @@ const OLS_3D_COLORS: Record<string, string> = {
   'approach-ih-intersection': '#a855f7',
   'runway-strip': '#94a3b8',
 };
-
-function localToWorld3D(x: number, z: number, y: number, bearingDeg: number): THREE.Vector3 {
-  const rad = (bearingDeg * Math.PI) / 180;
-  return new THREE.Vector3(
-    x * Math.sin(rad) + z * Math.cos(rad),
-    y,
-    x * Math.cos(rad) - z * Math.sin(rad),
-  );
-}
 
 function capsuleLocalPoints(
   runwayLength: number,
@@ -583,7 +574,6 @@ function createTransitional3D(
   innerY: number,
   outerY: number,
   xOff: number,
-  bearingDeg: number,
   color: string,
   opacity: number,
   side: number = 0,
@@ -591,7 +581,8 @@ function createTransitional3D(
   const grp = new THREE.Group();
   const mat = createSurfaceMaterial(color, opacity);
   const gnd = 0.2;
-  const w = (x: number, z: number, y: number) => localToWorld3D(x + xOff, z, y, bearingDeg);
+  // Geometry is built at bearing=0; the caller's group.rotation.y handles the azimuth.
+  const w = (x: number, z: number, y: number) => new THREE.Vector3(z, y, x + xOff);
 
   const sides = side === 0 ? [-1, 1] : [side];
 
@@ -646,7 +637,6 @@ function createApproachTransitional3D(
   approachInnerHW: number,
   ihHeight: number,
   xOff: number,
-  bearingDeg: number,
   color: string,
   opacity: number,
   side: number = 0,
@@ -654,7 +644,8 @@ function createApproachTransitional3D(
   const grp = new THREE.Group();
   const mat = createSurfaceMaterial(color, opacity);
   const gnd = 0.2;
-  const w = (x: number, z: number, y: number) => localToWorld3D(x + xOff, z, y, bearingDeg);
+  // Geometry is built at bearing=0; the caller's group.rotation.y handles the azimuth.
+  const w = (x: number, z: number, y: number) => new THREE.Vector3(z, y, x + xOff);
 
   const sides = side === 0 ? [-1, 1] : [side];
 
@@ -712,8 +703,9 @@ function createOLSSurfacesGroup(
   surfaces: GeometryOverlay[],
   _origin: Coordinate,
   runwayParams: RunwayParams,
-): THREE.Group {
-  const group = new THREE.Group();
+): { primary: THREE.Group; reciprocal: THREE.Group } {
+  const pri = new THREE.Group();
+  const rec = new THREE.Group();
   const elev = runwayParams.elevation;
   const rwLen = runwayParams.length;
 
@@ -721,14 +713,19 @@ function createOLSSurfacesGroup(
   // 3D scene uses runway center as origin → offset all backend X by -rwLen/2.
   const xOff = -rwLen / 2;
 
+  // All geometry is built at bearing=0.  The caller rotates pri / rec
+  // via group.rotation.y so every surface moves as a single rigid body.
+  // bearing=0 → local (x, z) maps to world (z, x) → Vector3(z, y, x).
+  const toWorld = (x: number, z: number, y: number) => new THREE.Vector3(z, y, x + xOff);
+
   for (const surface of surfaces) {
     if (!surface.metadata) continue;
     if (surface.kind !== 'polygon' && surface.kind !== 'polyline') continue;
     const st = surface.metadata.surfaceType as string;
     if (!st) continue;
 
-    const bearing = (surface.metadata.departureBearing as number) ?? runwayParams.magneticBearing;
-    const w = (x: number, z: number, y: number) => localToWorld3D(x + xOff, z, y, bearing);
+    const isReciprocal = surface.id.endsWith('-reciprocal');
+    const group = isReciprocal ? rec : pri;
 
     const altRel = (surface.altitude ?? elev) - elev;
     const color = OLS_3D_COLORS[st] ?? '#6b7280';
@@ -741,10 +738,10 @@ function createOLSSurfacesGroup(
         const halfW = (surface.metadata.halfWidthM as number) ?? 75;
         const endS = (surface.metadata.endSafetyM as number) ?? 60;
         const stripPts = [
-          w(-endS, -halfW, 0.3),
-          w(rwLen + endS, -halfW, 0.3),
-          w(rwLen + endS, halfW, 0.3),
-          w(-endS, halfW, 0.3),
+          toWorld(-endS, -halfW, 0.3),
+          toWorld(rwLen + endS, -halfW, 0.3),
+          toWorld(rwLen + endS, halfW, 0.3),
+          toWorld(-endS, halfW, 0.3),
         ];
         group.add(createHorizontalFlatPolygon(stripPts, 0.3, color, 0.12));
         break;
@@ -756,7 +753,7 @@ function createOLSSurfacesGroup(
         const ihBase = altRel;               // bottom at 45m — transitional outer edge meets here
         const ihTop = altRel + slabThick;    // top at 48m — clearly above transitional
         const ihCapsule = capsuleLocalPoints(rwLen, radius, 96);
-        const ihWorld = ihCapsule.map(([x, z]) => w(x, z, ihTop));
+        const ihWorld = ihCapsule.map(([x, z]) => toWorld(x, z, ihTop));
         group.add(createExtrudedSlab(ihWorld, ihBase, ihTop, color, 0.12));
         break;
       }
@@ -771,8 +768,8 @@ function createOLSSurfacesGroup(
         const innerY = outerY - coHeight;
         const innerCap = capsuleLocalPoints(rwLen, ihRadius, 96);
         const outerCap = capsuleLocalPoints(rwLen, coRadius, 96);
-        const innerWorld3D = innerCap.map(([x, z]) => w(x, z, innerY));
-        const outerWorld3D = outerCap.map(([x, z]) => w(x, z, outerY));
+        const innerWorld3D = innerCap.map(([x, z]) => toWorld(x, z, innerY));
+        const outerWorld3D = outerCap.map(([x, z]) => toWorld(x, z, outerY));
         group.add(buildConicalSolid3D(outerWorld3D, innerWorld3D, innerY, outerY, color, 0.1));
         break;
       }
@@ -792,10 +789,10 @@ function createOLSSurfacesGroup(
         const innerX = -distThr;
         const outerX = innerX - segLen;
 
-        const vIL = w(innerX, -innerHW, innerAlt);
-        const vIR = w(innerX, innerHW, innerAlt);
-        const vOR = w(outerX, outerHW, outerAlt);
-        const vOL = w(outerX, -outerHW, outerAlt);
+        const vIL = toWorld(innerX, -innerHW, innerAlt);
+        const vIR = toWorld(innerX, innerHW, innerAlt);
+        const vOR = toWorld(outerX, outerHW, outerAlt);
+        const vOL = toWorld(outerX, -outerHW, outerAlt);
 
         group.add(createSlopedTrapezoid(vIL, vIR, vOR, vOL, innerAlt, outerAlt, color, 0.14));
         break;
@@ -814,10 +811,10 @@ function createOLSSurfacesGroup(
         const innerX = rwLen + toDistEnd;
         const outerX = innerX + toLen;
 
-        const vIL = w(innerX, -toInnerHW, 0);
-        const vOL = w(outerX, -outerHW, outerAlt);
-        const vOR = w(outerX, outerHW, outerAlt);
-        const vIR = w(innerX, toInnerHW, 0);
+        const vIL = toWorld(innerX, -toInnerHW, 0);
+        const vOL = toWorld(outerX, -outerHW, outerAlt);
+        const vOR = toWorld(outerX, outerHW, outerAlt);
+        const vIR = toWorld(innerX, toInnerHW, 0);
 
         group.add(createSlopedTrapezoid(vIL, vIR, vOR, vOL, 0, outerAlt, color, 0.14));
         break;
@@ -835,11 +832,19 @@ function createOLSSurfacesGroup(
         const sideDir = surface.metadata.side === 'left' ? -1
           : surface.metadata.side === 'right' ? 1
           : 0;
-        group.add(
-          createTransitional3D(stripStartX, stripEndX, stripInnerHW, stripOuterHW, 0, altRel, xOff, bearing, color, 0.11, sideDir),
-        );
 
-        // Approach section: transitional surface extending from approach surface side edges
+        // The main transitional strip spans the entire runway and is symmetric —
+        // primary and reciprocal cover the same area. Skip the reciprocal duplicate
+        // to avoid overlapping semi-transparent meshes ("交错的限制面").
+        if (!isReciprocal) {
+          group.add(
+            createTransitional3D(stripStartX, stripEndX, stripInnerHW, stripOuterHW, 0, altRel, xOff, color, 0.11, sideDir),
+          );
+        }
+
+        // Approach section: extends from approach surface side edges.
+        // This IS direction-dependent (primary vs reciprocal are at opposite ends),
+        // so render it for both directions.
         const apIntersectX = surface.metadata.approachIntersectX as number | undefined;
         const apIntersectZ = surface.metadata.approachIntersectZ as number | undefined;
         const apOuterZ = surface.metadata.approachOuterZ as number | undefined;
@@ -848,7 +853,7 @@ function createOLSSurfacesGroup(
           group.add(
             createApproachTransitional3D(
               apIntersectX, stripStartX, apIntersectZ, apOuterZ,
-              apInnerHW, altRel, xOff, bearing, color, 0.11, sideDir,
+              apInnerHW, altRel, xOff, color, 0.11, sideDir,
             ),
           );
         }
@@ -859,8 +864,8 @@ function createOLSSurfacesGroup(
         // 3D line showing where the approach surface intersects the inner horizontal plane
         const ix = (surface.metadata.xIntersect as number) ?? 0;
         const iz = (surface.metadata.zIntersect as number) ?? 120;
-        const startP = w(ix, iz, altRel);
-        const endP = w(ix, -iz, altRel);
+        const startP = toWorld(ix, iz, altRel);
+        const endP = toWorld(ix, -iz, altRel);
         group.add(createEdgeLine([startP, endP], color, 0.8));
         break;
       }
@@ -870,7 +875,19 @@ function createOLSSurfacesGroup(
     }
   }
 
-  return group;
+  return { primary: pri, reciprocal: rec };
+}
+
+/** Rotate a 3D point (x, _, z) around the Y axis by delta degrees. */
+function rotateY(point: THREE.Vector3, deltaDeg: number): THREE.Vector3 {
+  const rad = (deltaDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return new THREE.Vector3(
+    point.x * cos + point.z * sin,
+    point.y,
+    -point.x * sin + point.z * cos,
+  );
 }
 
 const buildTrack3DSegments = (
@@ -881,6 +898,13 @@ const buildTrack3DSegments = (
   if (!trackResult) {
     return [];
   }
+
+  // Compute rotation delta: track was calculated at oldBearing,
+  // now we display it at the current runway bearing.
+  const oldBearing =
+    (trackResult.surfaces?.[0]?.metadata?.departureBearing as number | undefined)
+    ?? runway.magneticBearing;
+  const delta = runway.magneticBearing - oldBearing;
 
   let previousAltitude = runway.elevation;
 
@@ -897,7 +921,8 @@ const buildTrack3DSegments = (
       const points = coordinates.map((point, index) => {
         const progress = coordinates.length > 1 ? index / (coordinates.length - 1) : 1;
         const altitude = startAltitude + (endAltitude - startAltitude) * progress;
-        return toVector3(origin, point, Math.max(altitude - runway.elevation, 3));
+        const worldPos = toVector3(origin, point, Math.max(altitude - runway.elevation, 3));
+        return delta !== 0 ? rotateY(worldPos, delta) : worldPos;
       });
 
       return {
@@ -912,7 +937,8 @@ const buildTrack3DSegments = (
 const createTrackGroup = (
   origin: Coordinate,
   runway: RunwayParams,
-  trackResult: TrackResult | null
+  trackResult: TrackResult | null,
+  showKeyPoints = true,
 ): THREE.Group => {
   const group = new THREE.Group();
   const segments = buildTrack3DSegments(origin, runway, trackResult);
@@ -921,12 +947,20 @@ const createTrackGroup = (
     group.add(createLine(segment.points, segment.color));
   });
 
-  trackResult?.keyPoints.forEach((point) => {
-    const marker = createKeyPointMarker(origin, runway, point);
-    if (marker) {
-      group.add(marker);
-    }
-  });
+  if (showKeyPoints) {
+    // Rotate key-point markers by the same bearing delta as the track
+    const oldBearing =
+      (trackResult?.surfaces?.[0]?.metadata?.departureBearing as number | undefined)
+      ?? runway.magneticBearing;
+    const delta = runway.magneticBearing - oldBearing;
+
+    trackResult?.keyPoints.forEach((point) => {
+      const marker = createKeyPointMarker(origin, runway, point, delta);
+      if (marker) {
+        group.add(marker);
+      }
+    });
+  }
 
   return group;
 };
@@ -934,7 +968,8 @@ const createTrackGroup = (
 const createKeyPointMarker = (
   origin: Coordinate,
   runway: RunwayParams,
-  point: GeometryOverlay
+  point: GeometryOverlay,
+  bearingDelta = 0,
 ): THREE.Group | null => {
   const coordinate = point.coordinates[0];
   if (!coordinate) {
@@ -943,7 +978,11 @@ const createKeyPointMarker = (
 
   const group = new THREE.Group();
   const height = Math.max((point.altitude ?? runway.elevation) - runway.elevation, 5);
-  group.position.copy(toVector3(origin, coordinate, height));
+  let pos = toVector3(origin, coordinate, height);
+  if (bearingDelta !== 0) {
+    pos = rotateY(pos, bearingDelta);
+  }
+  group.position.copy(pos);
 
   const sphere = new THREE.Mesh(
     new THREE.SphereGeometry(28, 16, 16),
@@ -983,8 +1022,10 @@ const ThreeScene: React.FC<{
   buildings: BuildingFeature[];
   roads: RoadFeature[];
   elevationData: ElevationGridData | null;
-  amapBuildings: AmapBuilding[];
-}> = ({ runwayParams, trackResult, buildings, roads, elevationData, amapBuildings }) => {
+  terrain3DMode: Terrain3DMode;
+  tiandituKey: string;
+  showKeyPoints?: boolean;
+}> = ({ runwayParams, trackResult, buildings, roads, elevationData, terrain3DMode, tiandituKey, showKeyPoints = true }) => {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
@@ -1060,67 +1101,117 @@ const ThreeScene: React.FC<{
       }
     }
 
-    scene.add(new THREE.AmbientLight('#ffffff', 0.95));
-    const light = new THREE.DirectionalLight('#ffffff', 1.15);
-    light.position.set(2600, 5200, 1800);
-    scene.add(light);
-    scene.add(new THREE.GridHelper(AIRSPACE_RADIUS_M * 2, 20, '#94a3b8', '#cbd5e1'));
+    const isBuildingsMode = terrain3DMode === 'buildings';
 
-    // --- Terrain mesh ---
-    const terrainMesh = elevationData
+    if (isBuildingsMode) {
+      scene.background = new THREE.Color('#1a1a2e');
+      scene.fog = new THREE.Fog('#1a1a2e', 4000, 15000);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      scene.add(new THREE.AmbientLight('#bcd4f0', 0.7));
+      const sun = new THREE.DirectionalLight('#fff8e7', 1.8);
+      sun.position.set(3000, 5000, 2000);
+      sun.castShadow = true;
+      sun.shadow.mapSize.set(1024, 1024);
+      sun.shadow.camera.left = -6000;
+      sun.shadow.camera.right = 6000;
+      sun.shadow.camera.top = 6000;
+      sun.shadow.camera.bottom = -6000;
+      sun.shadow.camera.near = 100;
+      sun.shadow.camera.far = 20000;
+      scene.add(sun);
+      const fill = new THREE.DirectionalLight('#aaccff', 0.4);
+      fill.position.set(-1000, 2000, -1000);
+      scene.add(fill);
+    } else {
+      scene.add(new THREE.AmbientLight('#ffffff', 0.95));
+      const light = new THREE.DirectionalLight('#ffffff', 1.15);
+      light.position.set(2600, 5200, 1800);
+      scene.add(light);
+      scene.add(new THREE.GridHelper(AIRSPACE_RADIUS_M * 2, 20, '#94a3b8', '#cbd5e1'));
+    }
+
+    // --- Ground / Terrain ---
+    const terrainMesh = (!isBuildingsMode && elevationData)
       ? buildTerrainMesh(elevationData, runwayParams.coordinate, runwayParams.elevation)
       : null;
     if (terrainMesh) {
       scene.add(terrainMesh);
     }
 
+    // Buildings-mode flat satellite ground plane
+    if (isBuildingsMode) {
+      const groundGeo = new THREE.PlaneGeometry(AIRSPACE_RADIUS_M * 3, AIRSPACE_RADIUS_M * 3);
+      const groundMat = new THREE.MeshStandardMaterial({ color: '#3a3a3a', roughness: 0.95 });
+      const groundPlane = new THREE.Mesh(groundGeo, groundMat);
+      groundPlane.rotation.x = -Math.PI / 2;
+      groundPlane.position.y = -2;
+      groundPlane.receiveShadow = true;
+      groundPlane.name = 'satellite-ground';
+      scene.add(groundPlane);
+
+      if (tiandituKey) {
+        const bounds = buildBoundingBox(runwayParams.coordinate, AIRSPACE_RADIUS_M);
+        buildSatelliteTexture(bounds, tiandituKey).then((tex) => {
+          if (tex) {
+            groundMat.map = tex;
+            groundMat.color.set('#ffffff');
+            groundMat.needsUpdate = true;
+          }
+        });
+      }
+    }
+
     scene.add(createAirspaceGroup());
-    scene.add(createRunwayGroup(runwayParams, rwWidth));
+    scene.add(createRunwayGroup(runwayParams, rwWidth, showKeyPoints));
 
     if (trackResult) {
-      scene.add(createOLSSurfacesGroup(trackResult.surfaces, runwayParams.coordinate, runwayParams));
+      const olsGroups = createOLSSurfacesGroup(trackResult.surfaces, runwayParams.coordinate, runwayParams);
+      const bearingRad = (runwayParams.magneticBearing * Math.PI) / 180;
+      olsGroups.primary.rotation.y = bearingRad;
+      olsGroups.reciprocal.rotation.y = bearingRad;
+      scene.add(olsGroups.primary);
+      scene.add(olsGroups.reciprocal);
     }
 
     buildings.forEach((building) => {
-      const mesh = createBuildingMesh(runwayParams.coordinate, building);
+      const mesh = createBuildingMesh(runwayParams.coordinate, building, terrain3DMode);
       if (mesh) {
-        const centroid = building.geometry[0];
-        if (centroid && elevationData) {
-          const proj = projectCoordinate(runwayParams.coordinate, centroid);
-          const terrainH = sampleTerrainHeight(elevationData, proj.east, proj.north, runwayParams.elevation);
-          mesh.position.y = terrainH;
+        if (isBuildingsMode) {
+          mesh.position.y = 0;
+        } else {
+          const centroid = building.geometry[0];
+          if (centroid && elevationData) {
+            const proj = projectCoordinate(runwayParams.coordinate, centroid);
+            const terrainH = sampleTerrainHeight(elevationData, proj.east, proj.north, runwayParams.elevation);
+            mesh.position.y = terrainH;
+          }
         }
         scene.add(mesh);
       }
     });
 
-    // Amap POI buildings (simple boxes, no footprint data)
-    amapBuildings.forEach((b) => {
-      const mesh = createSimpleBuilding(runwayParams.coordinate, b.latitude, b.longitude);
-      if (elevationData) {
-        const proj = projectCoordinate(runwayParams.coordinate, { latitude: b.latitude, longitude: b.longitude });
-        const terrainH = sampleTerrainHeight(elevationData, proj.east, proj.north, runwayParams.elevation);
-        mesh.position.y = terrainH + 10; // half height offset
-      }
-      scene.add(mesh);
-    });
-
-    roads.forEach((road) => {
-      const points = road.geometry.map((point) => {
-        const terrainH = elevationData
-          ? sampleTerrainHeight(elevationData,
-              projectCoordinate(runwayParams.coordinate, point).east,
-              projectCoordinate(runwayParams.coordinate, point).north,
-              runwayParams.elevation)
-          : 0;
-        return toVector3(runwayParams.coordinate, point, Math.max(0.35, terrainH + 0.35));
+    // Roads — only in terrain mode
+    if (!isBuildingsMode) {
+      roads.forEach((road) => {
+        const points = road.geometry.map((point) => {
+          const terrainH = elevationData
+            ? sampleTerrainHeight(elevationData,
+                projectCoordinate(runwayParams.coordinate, point).east,
+                projectCoordinate(runwayParams.coordinate, point).north,
+                runwayParams.elevation)
+            : 0;
+          return toVector3(runwayParams.coordinate, point, Math.max(0.35, terrainH + 0.35));
+        });
+        if (points.length >= 2) {
+          scene.add(createLine(points, '#64748b', 0.85));
+        }
       });
-      if (points.length >= 2) {
-        scene.add(createLine(points, '#64748b', 0.85));
-      }
-    });
+    }
 
-    scene.add(createTrackGroup(runwayParams.coordinate, runwayParams, trackResult));
+    scene.add(createTrackGroup(runwayParams.coordinate, runwayParams, trackResult, showKeyPoints));
 
     const resizeObserver = new ResizeObserver(() => {
       const width = Math.max(container.clientWidth, 1);
@@ -1148,66 +1239,76 @@ const ThreeScene: React.FC<{
       renderer.domElement.remove();
       disposeObject(scene);
     };
-  }, [buildings, roads, runwayParams, trackResult, elevationData, amapBuildings]);
+  }, [buildings, roads, runwayParams, trackResult, elevationData, terrain3DMode, tiandituKey, showKeyPoints]);
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
 };
 
-const Map3DView: React.FC<Map3DViewProps> = ({ runwayParams, trackResult, enabled }) => {
+const Map3DView: React.FC<Map3DViewProps> = ({ runwayParams, trackResult, enabled, terrain3DMode, tiandituKey, showKeyPoints = true }) => {
   const [buildings, setBuildings] = React.useState<BuildingFeature[]>([]);
   const [roads, setRoads] = React.useState<RoadFeature[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [loadedKey, setLoadedKey] = React.useState<string | null>(null);
   const [reloadToken, setReloadToken] = React.useState(0);
 
-  // Elevation + Amap buildings
   const [elevationData, setElevationData] = React.useState<ElevationGridData | null>(null);
-  const [amapBuildings, setAmapBuildings] = React.useState<AmapBuilding[]>([]);
   const [elevationLoading, setElevationLoading] = React.useState(false);
   const [elevationError, setElevationError] = React.useState<string | null>(null);
 
   const currentKey = coordinateKey(runwayParams.coordinate);
+
+  const effectGenRef = React.useRef(0);
 
   React.useEffect(() => {
     if (!enabled || loadedKey === currentKey) {
       return undefined;
     }
 
+    const gen = ++effectGenRef.current;
     const controller = new AbortController();
+    const signal = controller.signal;
     const osmTimeoutId = window.setTimeout(() => controller.abort(), 15000);
 
+    setBuildings([]);
+    setRoads([]);
+    setElevationData(null);
     setLoading(true);
     setElevationLoading(true);
     setElevationError(null);
 
-    // Fetch OSM, elevation, and Amap buildings in parallel
+    // Fetch OSM and elevation in parallel
     Promise.allSettled([
-      fetchOsmScene(runwayParams.coordinate, controller.signal)
+      fetchOsmScene(runwayParams.coordinate, signal)
         .then((scene) => {
-          setBuildings(scene.buildings);
-          setRoads(scene.roads);
+          if (effectGenRef.current === gen) {
+            setBuildings(scene.buildings);
+            setRoads(scene.roads);
+          }
         })
         .catch(() => {
-          // OSM timeout is expected in China — not a fatal error
-          console.log('[Map3D] OSM fetch failed, will rely on Amap buildings');
+          if (effectGenRef.current === gen) {
+            setBuildings([]);
+            setRoads([]);
+          }
         }),
       fetchElevationGrid(runwayParams.coordinate)
         .then((data) => {
-          setElevationData(data);
-        }),
-      fetchAmapBuildings(runwayParams.coordinate)
-        .then((data) => {
-          setAmapBuildings(data);
+          if (effectGenRef.current === gen) {
+            setElevationData(data);
+          }
         }),
     ]).then(([_osmResult, elResult]) => {
+      if (effectGenRef.current !== gen) return;
       if (elResult.status === 'rejected') {
         setElevationError(elResult.reason instanceof Error ? elResult.reason.message : '高程数据获取失败');
       }
       setLoadedKey(currentKey);
     }).finally(() => {
-      window.clearTimeout(osmTimeoutId);
-      setLoading(false);
-      setElevationLoading(false);
+      if (effectGenRef.current === gen) {
+        window.clearTimeout(osmTimeoutId);
+        setLoading(false);
+        setElevationLoading(false);
+      }
     });
 
     return () => {
@@ -1222,7 +1323,7 @@ const Map3DView: React.FC<Map3DViewProps> = ({ runwayParams, trackResult, enable
   };
 
   return (
-    <Box sx={{ position: 'relative', height: '100%', width: '100%', bgcolor: '#dbeafe' }}>
+    <Box sx={{ position: 'relative', height: '100%', width: '100%', bgcolor: terrain3DMode === 'buildings' ? '#1a1a2e' : '#dbeafe' }}>
       {enabled && (
         <ThreeScene
           runwayParams={runwayParams}
@@ -1230,7 +1331,9 @@ const Map3DView: React.FC<Map3DViewProps> = ({ runwayParams, trackResult, enable
           buildings={buildings}
           roads={roads}
           elevationData={elevationData}
-          amapBuildings={amapBuildings}
+          terrain3DMode={terrain3DMode}
+          tiandituKey={tiandituKey}
+          showKeyPoints={showKeyPoints}
         />
       )}
 
@@ -1245,11 +1348,8 @@ const Map3DView: React.FC<Map3DViewProps> = ({ runwayParams, trackResult, enable
             {elevationError}
           </Alert>
         )}
-        {!loading && !elevationLoading && buildings.length === 0 && amapBuildings.length === 0 && loadedKey === currentKey && (
+        {!loading && !elevationLoading && buildings.length === 0 && loadedKey === currentKey && (
           <Alert severity="info">5km范围内未获取到建筑数据</Alert>
-        )}
-        {!loading && !elevationLoading && buildings.length === 0 && amapBuildings.length > 0 && loadedKey === currentKey && (
-          <Alert severity="success">已获取 {amapBuildings.length} 个周边建筑（高德POI）</Alert>
         )}
         {!trackResult && (
           <Alert severity="info" sx={{ mt: 1 }}>
@@ -1272,9 +1372,10 @@ const Map3DView: React.FC<Map3DViewProps> = ({ runwayParams, trackResult, enable
         }}
       >
         <Typography variant="caption">
-          建筑 OSM {buildings.length} / 高德 {amapBuildings.length} / 道路 {roads.length}
+          建筑 OSM {buildings.length} / 道路 {roads.length}
           {elevationData && ` / 地形 ${elevationData.validCount}/${elevationData.totalCount}`}
           {' / 半径 5km'}
+          {terrain3DMode === 'buildings' && tiandituKey && ' / 卫星底图'}
         </Typography>
       </Box>
     </Box>

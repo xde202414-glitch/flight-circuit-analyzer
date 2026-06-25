@@ -142,7 +142,10 @@ const RunwayForm: React.FC = () => {
                   </Typography>
                   <Slider
                     value={field.value}
-                    onChange={(_, value) => field.onChange(value)}
+                    onChange={(_, value) => {
+                      field.onChange(value);
+                      setRunwayParams({ magneticBearing: value as number });
+                    }}
                     min={0}
                     max={360}
                     step={1}

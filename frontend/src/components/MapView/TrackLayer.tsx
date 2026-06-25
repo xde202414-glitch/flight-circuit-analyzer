@@ -13,6 +13,7 @@ import {
 interface TrackLayerProps {
   result: TrackResult;
   showAnnotations?: boolean;
+  showKeyPoints?: boolean;
   showTrack?: boolean;
   showSurfaces?: boolean;
   showEnvelope?: boolean;
@@ -383,6 +384,7 @@ const addAnnotation = (layerGroup: L.LayerGroup, annotation: ProcedureAnnotation
 const TrackLayer: React.FC<TrackLayerProps> = ({
   result,
   showAnnotations = true,
+  showKeyPoints = true,
   showTrack = true,
   showSurfaces = true,
   showEnvelope = true,
@@ -402,6 +404,8 @@ const TrackLayer: React.FC<TrackLayerProps> = ({
         .filter((surface) => {
           const isEnvelope =
             surface.styleKey === 'obstacle-envelope' || surface.styleKey === 'ols-envelope';
+          // Threshold midpoint markers are controlled by showKeyPoints instead
+          if (surface.styleKey === 'threshold') return false;
           return isEnvelope ? showEnvelope : showSurfaces;
         })
         .forEach((surface) => addOverlay(layerGroup, surface));
@@ -423,8 +427,13 @@ const TrackLayer: React.FC<TrackLayerProps> = ({
         );
         layerGroup.addLayer(line);
       });
+    }
 
+    if (showKeyPoints) {
       result.keyPoints.forEach((point) => addOverlay(layerGroup, point));
+      result.surfaces
+        .filter((surface) => surface.styleKey === 'threshold')
+        .forEach((surface) => addOverlay(layerGroup, surface));
     }
 
     if (showAnnotations) {
@@ -436,7 +445,7 @@ const TrackLayer: React.FC<TrackLayerProps> = ({
     return () => {
       layerGroup.remove();
     };
-  }, [map, result, showAnnotations, showAirspaces, showEnvelope, showSurfaces, showTrack]);
+  }, [map, result, showAnnotations, showKeyPoints, showAirspaces, showEnvelope, showSurfaces, showTrack]);
 
   return null;
 };
