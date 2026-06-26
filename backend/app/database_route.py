@@ -308,5 +308,15 @@ def init_db() -> None:
                 FOREIGN KEY(route_id) REFERENCES routes(id) ON DELETE CASCADE,
                 FOREIGN KEY(landing_id) REFERENCES landing_sites(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                hashed_password TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'user',
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
             """
         )

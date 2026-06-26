@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     # Magnetic Variation
     default_magnetic_variation: float = 0.0
 
+    # Auth Settings
+    secret_key: str = "change-me-to-a-random-secret-in-production"
+    access_token_expire_minutes: int = 480  # 8 hours
+    algorithm: str = "HS256"
+
     # Route 10 Integration Settings
     route_data_dir: str = ""
 

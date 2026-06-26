@@ -275,7 +275,7 @@ const TakeoffFlightPage: React.FC = () => {
       </div>
 
       {/* Center - Map */}
-      <div className="module-map-panel" style={{ flex: 1, minWidth: 0 }}>
+      <div className="module-map-panel" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <div className="module-panel-header" style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span>进入与退出主航路</span>
           <span className={`status-pill ${planStatus === 'pass' ? 'pass' : planStatus === 'fail' ? 'fail' : 'unknown'}`}>

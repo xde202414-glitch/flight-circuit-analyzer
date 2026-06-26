@@ -156,6 +156,7 @@ export interface ImportItem {
   airspace_level: 'suitable' | 'limited' | 'prohibited';
   feature_count: number; is_visible: boolean; is_locked: boolean;
   feature_collection?: GeoJSON;
+  bounds?: { west: number; south: number; east: number; north: number } | null;
 }
 
 export interface TakeoffFlightState {

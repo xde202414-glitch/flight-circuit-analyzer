@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { MapContainer, Polygon, Polyline, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, Polygon, Polyline, Popup, useMapEvents, useMap } from 'react-leaflet';
 import BaseMapLayer from '../../components/MapView/BaseMapLayer';
 import { apiClient } from '../../api/client';
 import type { ImportProject, ImportItem } from '../../api/types';
+import type L from 'leaflet';
 
 const MAP_CENTER: [number, number] = [31.2304, 121.4737];
 
@@ -21,6 +22,12 @@ function ViewportListener({ onChange }: { onChange: (vp: Viewport) => void }) {
       });
     },
   });
+  return null;
+}
+
+function MapInstanceCapture({ onReady }: { onReady: (map: L.Map) => void }) {
+  const map = useMap();
+  useEffect(() => { onReady(map); }, [map, onReady]);
   return null;
 }
 
@@ -64,6 +71,23 @@ const DataImportPage: React.FC = () => {
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
 
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+
+  // Locate item on map
+  const locateItem = useCallback(async (itemId: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+    let bounds = items.find(i => i.id === itemId)?.bounds;
+    if (!bounds) {
+      try {
+        const detail = await apiClient.getImportItem(itemId);
+        bounds = detail?.bounds;
+      } catch { /* ignore */ }
+    }
+    if (bounds && bounds.west !== undefined) {
+      map.flyToBounds([[bounds.south, bounds.west], [bounds.north, bounds.east]], { padding: [40, 40] });
+    }
+  }, [items]);
 
   // Data loading
   const reloadAll = useCallback(async () => {
@@ -85,16 +109,18 @@ const DataImportPage: React.FC = () => {
 
   useEffect(() => { reloadAll(); }, [reloadAll]);
 
-  // Load map features on viewport change
+  // Load map features on viewport change or selection change
   useEffect(() => {
     if (!viewport) return;
+    let cancelled = false;
     const load = async () => {
       try {
-        const result = await apiClient.queryImportMapFeatures({
-          bbox: viewport,
-          zoom: 10,
-          max_features: 1200,
-        });
+        const params: Record<string, any> = { bbox: viewport, zoom: 10, max_features: 1200 };
+        if (selectedItemIds.size > 0) {
+          params.item_ids = Array.from(selectedItemIds);
+        }
+        const result = await apiClient.queryImportMapFeatures(params);
+        if (cancelled) return;
         setMapFeatures(result.features || []);
         setMapResult({
           returned_count: result.returned_count ?? result.features?.length ?? 0,
@@ -104,7 +130,8 @@ const DataImportPage: React.FC = () => {
       } catch { /* ignore */ }
     };
     load();
-  }, [viewport]);
+    return () => { cancelled = true; };
+  }, [viewport, selectedItemIds]);
 
   // Poll obstacle job
   useEffect(() => {
@@ -138,7 +165,10 @@ const DataImportPage: React.FC = () => {
   };
 
   // Item selection
-  const selectOnlyItem = (id: number) => setSelectedItemIds(new Set([id]));
+  const selectOnlyItem = (id: number) => {
+    setSelectedItemIds(new Set([id]));
+    locateItem(id);
+  };
   const toggleSelectedItem = (id: number) => {
     setSelectedItemIds(prev => {
       const next = new Set(prev);
@@ -350,8 +380,18 @@ const DataImportPage: React.FC = () => {
           <button className="btn btn-xs" onClick={showAllItems} disabled={!items.length}>全部显示</button>
           <button className="btn btn-xs" onClick={hideAllItems} disabled={!items.length}>全部隐藏</button>
           <button className="btn btn-xs btn-danger" onClick={clearAllItems} disabled={!items.length}>全部清空</button>
-          <button className="btn btn-xs" disabled={selectedItemIds.size !== 1}>重命名</button>
-          <button className="btn btn-xs" disabled={!selectedItemIds.size}>定位</button>
+          <button className="btn btn-xs" disabled={selectedItemIds.size !== 1}
+            onClick={async () => {
+              const id = [...selectedItemIds][0];
+              const item = items.find(i => i.id === id);
+              const name = prompt('新名称：', item?.name || '');
+              if (name && name.trim()) {
+                await apiClient.updateImportItem(id, { name: name.trim() });
+                reloadAll();
+              }
+            }}>重命名</button>
+          <button className="btn btn-xs" disabled={!selectedItemIds.size}
+            onClick={() => { const id = [...selectedItemIds][0]; if (id) locateItem(id); }}>定位</button>
           <button className="btn btn-xs btn-danger" onClick={removeSelectedItems} disabled={!selectedItemIds.size}>删除</button>
           <button className="btn btn-xs" onClick={mergeSelected} disabled={selectedItemIds.size < 2}>合并</button>
           <button className="btn btn-xs" onClick={exportSelected} disabled={!selectedItemIds.size}>导出</button>
@@ -401,7 +441,7 @@ const DataImportPage: React.FC = () => {
       </div>
 
       {/* Center Panel - Map */}
-      <div className="module-map-panel" style={{ flex: 1, minWidth: 0 }}>
+      <div className="module-map-panel" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <div className="module-panel-header" style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span>导入数据地图</span>
           <span style={{ fontSize: 11, color: '#64748b' }}>
@@ -411,16 +451,28 @@ const DataImportPage: React.FC = () => {
         <div style={{ flex: 1, position: 'relative' }}>
           <MapContainer center={MAP_CENTER} zoom={10} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
             <BaseMapLayer />
+            <MapInstanceCapture onReady={(map) => { mapRef.current = map; }} />
             <ViewportListener onChange={setViewport} />
-            {mapFeatures.map((feature: any, i: number) => {
+            {(() => {
+              const itemFeatureIndex = new Map<number, number>();
+              const dashPatterns = [null, '6,3', '2,4', '10,5'];
+              return mapFeatures.map((feature: any, i: number) => {
               const color = getFeatureColor(feature.properties);
+              const itemId = feature.properties?.item_id;
               if (feature.geometry?.type === 'Polygon' || feature.geometry?.type === 'MultiPolygon') {
                 const coords = feature.geometry.type === 'Polygon'
                   ? feature.geometry.coordinates[0]?.map((c: number[]) => [c[1], c[0]] as [number, number])
                   : feature.geometry.coordinates[0]?.[0]?.map((c: number[]) => [c[1], c[0]] as [number, number]);
                 if (!coords?.length) return null;
+                const idx = itemFeatureIndex.get(itemId) ?? 0;
+                itemFeatureIndex.set(itemId, idx + 1);
+                const dashArray = idx > 0 ? dashPatterns[idx % dashPatterns.length] : undefined;
                 return (
-                  <Polygon key={`f-${i}`} positions={coords} color={color} fillColor={color} fillOpacity={0.2} weight={2}>
+                  <Polygon key={`f-${i}`} positions={coords}
+                    color={color} fillColor={color}
+                    fillOpacity={0.08} weight={2.5}
+                    {...(dashArray ? { dashArray } : {})}
+                    opacity={0.7}>
                     <Popup>
                       <div style={{ fontSize: 11 }}>
                         <strong>{feature.properties?.name || '未命名'}</strong><br />
@@ -436,7 +488,7 @@ const DataImportPage: React.FC = () => {
                 return <Polyline key={`f-${i}`} positions={coords} color={color} weight={3} />;
               }
               return null;
-            })}
+            })})()}
           </MapContainer>
         </div>
       </div>

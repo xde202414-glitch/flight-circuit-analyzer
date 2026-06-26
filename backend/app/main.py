@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from app.config import settings
 from app.api import runway, aircraft, track, config, elevation, buildings, helipad
 from app.routers_route10 import route_router, analysis_router, export_router, import_router, map_router
+from app.auth.router import router as auth_router
 from app.database_route import init_db as init_route_db
 
 
@@ -65,6 +66,7 @@ app.include_router(analysis_router.router, prefix=settings.api_prefix, tags=["�
 app.include_router(export_router.router, prefix=settings.api_prefix, tags=["数据导出"])
 app.include_router(import_router.router, prefix=settings.api_prefix, tags=["数据导入"])
 app.include_router(map_router.router, prefix=settings.api_prefix, tags=["地图配置"])
+app.include_router(auth_router, prefix=settings.api_prefix, tags=["认证"])
 
 
 @app.get("/health")
