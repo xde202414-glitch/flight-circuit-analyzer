@@ -460,21 +460,20 @@ const RouteManagementPage: React.FC = () => {
     const ordered = [...points].sort((a, b) => a.order_index - b.order_index);
     if (addMode === 'start' || addMode === 'end') {
       const existing = ordered.find(p => p.point_type === addMode);
-      const newPoints = ordered.filter(p => p.point_type !== addMode).map(p => ({
-        name: p.name, point_type: p.point_type, longitude: p.longitude, latitude: p.latitude, altitude: p.altitude ?? 0, order_index: 0,
-      }));
-      const endpoint = {
+      const shared = {
         name: addMode === 'start' ? '起点' : '终点',
         point_type: addMode,
         longitude: Number(latlng.lng.toFixed(7)),
         latitude: Number(latlng.lat.toFixed(7)),
         altitude: existing?.altitude ?? 0,
-        order_index: addMode === 'start' ? 0 : newPoints.length,
       };
-      const next = addMode === 'start' ? [endpoint, ...newPoints] : [...newPoints, endpoint];
-      for (const p of points) await apiClient.deleteRoutePoint(selectedRouteId, p.id);
-      for (const p of next) {
-        await apiClient.createRoutePoint(selectedRouteId, { ...p, order_index: p.order_index });
+      if (existing) {
+        await apiClient.updateRoutePoint(selectedRouteId, existing.id, shared);
+      } else {
+        await apiClient.createRoutePoint(selectedRouteId, {
+          ...shared,
+          order_index: addMode === 'start' ? 0 : ordered.length,
+        });
       }
     } else {
       // Insert waypoint

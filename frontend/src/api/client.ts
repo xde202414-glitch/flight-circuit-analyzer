@@ -179,11 +179,11 @@ export const apiClient = {
     return res.data;
   },
   runAnalysis: async (routeId: number, payload?: any): Promise<AnalysisRunResult> => {
-    const res = await axiosInstance.post(`/routes/${routeId}/analysis/run`, payload || {});
+    const res = await axiosInstance.post(`/routes/${routeId}/analysis/run`, payload || {}, { timeout: 300000 });
     return res.data;
   },
   runSingleFactor: async (routeId: number, factorId: string, payload?: any): Promise<AnalysisFactorResult> => {
-    const res = await axiosInstance.post(`/routes/${routeId}/analysis/factors/${factorId}/run`, payload || {});
+    const res = await axiosInstance.post(`/routes/${routeId}/analysis/factors/${factorId}/run`, payload || {}, { timeout: 300000 });
     return res.data;
   },
   updateFactorInput: async (routeId: number, factorId: string, payload: any): Promise<any> => {

@@ -21,6 +21,8 @@ from app.services.geo_service import get_route_geo_data
 from app.services.route_service import generate_route_geometry, get_points, get_route, get_route_full_state
 
 OVERPASS_API_URL = "https://overpass-api.de/api/interpreter"
+_OVERPASS_MIN_INTERVAL_S = 4.0
+_OVERPASS_LAST_REQUEST_TS = 0.0
 COMPLIANCE_VALUES = {"pass", "fail", "unknown"}
 INPUT_MODE_VALUES = {"auto", "manual"}
 AIRCRAFT_TYPES = {"micro", "light"}
@@ -615,6 +617,35 @@ def _is_tunnel_like(tags: dict[str, Any] | None) -> bool:
     return False
 
 
+def _rate_limited_overpass_request(query: str, timeout_s: float) -> str:
+    global _OVERPASS_LAST_REQUEST_TS
+    elapsed = time.monotonic() - _OVERPASS_LAST_REQUEST_TS
+    if elapsed < _OVERPASS_MIN_INTERVAL_S:
+        time.sleep(_OVERPASS_MIN_INTERVAL_S - elapsed)
+    last_error = None
+    for attempt in range(5):
+        _OVERPASS_LAST_REQUEST_TS = time.monotonic()
+        try:
+            req = urllib.request.Request(
+                OVERPASS_API_URL,
+                data=query.encode("utf-8"),
+                headers={"User-Agent": "route-designer-analysis/1.0", "Content-Type": "text/plain; charset=utf-8"},
+            )
+            with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+                return resp.read().decode("utf-8")
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            if exc.code in (429, 504):
+                backoff = (2 ** attempt) * 3.0
+                time.sleep(backoff)
+                continue
+            raise
+        except Exception:
+            last_error = None
+            raise
+    raise last_error  # type: ignore[misc]
+
+
 def _fetch_overpass_points(
     filters: list[str],
     bounds: tuple[float, float, float, float],
@@ -638,13 +669,7 @@ def _fetch_overpass_points(
         + ");"
         f"out center tags {int(max(20, min(2000, max_candidates)))};"
     )
-    request = urllib.request.Request(
-        OVERPASS_API_URL,
-        data=query.encode("utf-8"),
-        headers={"User-Agent": "route-designer-analysis/1.0", "Content-Type": "text/plain; charset=utf-8"},
-    )
-    with urllib.request.urlopen(request, timeout=timeout_s) as response:
-        payload = response.read().decode("utf-8")
+    payload = _rate_limited_overpass_request(query, timeout_s)
     data = json.loads(payload)
     elements = data.get("elements", []) or []
     points: list[dict[str, Any]] = []
@@ -694,13 +719,7 @@ def _fetch_overpass_points_by_area_name(
         + ");"
         f"out center tags {int(max(20, min(3000, max_candidates)))};"
     )
-    req = urllib.request.Request(
-        OVERPASS_API_URL,
-        data=query.encode("utf-8"),
-        headers={"User-Agent": "route-designer-analysis/1.0", "Content-Type": "text/plain; charset=utf-8"},
-    )
-    with urllib.request.urlopen(req, timeout=timeout_s) as response:
-        payload = response.read().decode("utf-8")
+    payload = _rate_limited_overpass_request(query, timeout_s)
     data = json.loads(payload)
     elements = data.get("elements", []) or []
     points: list[dict[str, Any]] = []
@@ -753,13 +772,7 @@ def _fetch_overpass_lines(
         + ");"
         "out geom tags;"
     )
-    request = urllib.request.Request(
-        OVERPASS_API_URL,
-        data=query.encode("utf-8"),
-        headers={"User-Agent": "route-designer-analysis/1.0", "Content-Type": "text/plain; charset=utf-8"},
-    )
-    with urllib.request.urlopen(request, timeout=timeout_s) as response:
-        payload = response.read().decode("utf-8")
+    payload = _rate_limited_overpass_request(query, timeout_s)
     data = json.loads(payload)
     elements = data.get("elements", []) or []
     lines: list[dict[str, Any]] = []
